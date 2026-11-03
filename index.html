@@ -132,6 +132,66 @@ body{padding:0;margin:0}
 .ubar>i{display:block;height:100%;background:var(--blue);transition:width .4s}
 .ubar.low>i{background:var(--warn)} .ubar.out>i{background:var(--bad)}
 .usage .note{margin:0;font-size:.8rem;color:var(--muted)}
+
+/* Knowledge base */
+select{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--bg);color:var(--ink);font:.9rem var(--display);max-width:100%}
+.jobs{display:grid;gap:10px}
+.job{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:grid;gap:8px;min-width:0}
+.job-head{display:flex;gap:10px;align-items:baseline;min-width:0}
+.job-head .t{flex:1;min-width:0}
+.job-head b{display:block;overflow-wrap:anywhere}
+.job .msg{font-size:.9rem;color:var(--muted);margin:0}
+.job .msg.err{color:var(--bad)}
+.job .merge{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.9rem;background:var(--accent-soft);border-radius:8px;padding:8px 12px}
+.plat{font:600 .7rem var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:6px;background:var(--line);color:var(--muted)}
+.traders{display:grid;gap:12px}
+.traders h2{margin:0;font-size:1.1rem}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.tcard{all:unset;box-sizing:border-box;cursor:pointer;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:6px;min-width:0}
+.tcard:hover{border-color:var(--accent)} .tcard:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tcard strong{font-size:1.05rem;overflow-wrap:anywhere}
+.tcard .acc{font:.75rem var(--mono);color:var(--muted);overflow-wrap:anywhere}
+.stats{display:flex;flex-wrap:wrap;gap:6px}
+.stat{font:600 .75rem var(--mono);padding:3px 9px;border-radius:99px;background:var(--blue-soft);color:var(--blue);font-variant-numeric:tabular-nums}
+.stat.warn{background:var(--warn-soft);color:var(--warn)} .stat.ok{background:var(--accent-soft);color:var(--accent)}
+.thead{display:grid;gap:10px}
+.thead h1{overflow-wrap:anywhere}
+.back{all:unset;cursor:pointer;color:var(--accent);font:600 .9rem var(--display)} .back:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.toolbar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+@media (max-width:760px){.toolbar{top:58px}}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{padding:7px 14px;border-radius:99px;font-size:.9rem}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filters input[type=search]{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--paper);color:var(--ink);font:.9rem var(--display);min-width:0;flex:1 1 200px}
+.concept{display:grid;gap:10px}
+.concept>h2{margin:8px 0 0;font-size:1.2rem}
+.rule{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:14px 16px;display:grid;gap:10px;min-width:0}
+.rule.flag{border-left-color:var(--warn)}
+.rule-head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.rule-head h3{margin:0;font-size:1.05rem;flex:1 1 220px}
+.rule .stmt{font-family:var(--body);font-size:1.05rem;margin:0}
+.rule .expl{font-family:var(--body);margin:0;white-space:pre-wrap}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:0;font-size:.92rem}
+.kv dt{font:600 .75rem var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding-top:2px}
+.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.kv dd.ns{color:var(--muted);font-style:italic}
+@media (max-width:520px){.kv{grid-template-columns:1fr}.kv dd{margin-bottom:6px}}
+.rule ul{margin:0;padding-left:1.1rem}
+blockquote{margin:0;padding:10px 14px;border-radius:8px;background:var(--bg);font-family:var(--body);font-style:italic;overflow-wrap:anywhere}
+.review{font-size:.88rem;background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:8px 12px;margin:0}
+.src{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:120px 1fr;gap:14px;min-width:0}
+.src img{width:100%;border-radius:8px;border:1px solid var(--line);aspect-ratio:9/16;object-fit:cover;background:var(--bg)}
+.src img.yt{aspect-ratio:16/9}
+.src .facts{gap:8px}
+@media (max-width:620px){.src{grid-template-columns:1fr}.src img{max-width:160px}}
+.graph{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px;display:grid;gap:8px}
+.graph svg{width:100%;height:auto;display:block}
+.graph .gnode{cursor:pointer}
+.graph text{font:600 12px var(--display);fill:var(--ink);paint-order:stroke;stroke:var(--paper);stroke-width:3px}
+.danger{border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:10px;background:var(--paper)}
+.danger h2{margin:0;font-size:1rem}
+button.bad{color:var(--bad);border-color:var(--bad)}
 </style>
 </head>
 <body>
@@ -140,6 +200,7 @@ body{padding:0;margin:0}
 <nav class="side" aria-label="Main menu">
   <div class="brand">Reel Script Desk</div>
   <button class="nav" type="button" aria-current="page" id="navHome">Transcribe</button>
+  <button class="nav" type="button" id="navKb">Knowledge base</button>
   <button class="nav" type="button" id="navUsage">Usage</button>
   <button class="nav" type="button" id="navKeys" aria-expanded="false" aria-controls="drawer">API keys <span class="dot" id="keyDot" aria-hidden="true"></span></button>
   <p class="side-foot">Your keys stay in this browser. They're sent only with your own requests and never saved on our server.</p>
@@ -199,13 +260,43 @@ body{padding:0;margin:0}
   </section>
 
 </div>
+<div class="wrap" id="viewKb" hidden>
+  <header>
+    <h1>Trader knowledge base</h1>
+    <p>Paste Instagram reels and YouTube videos together. Each one is filed under its trader automatically, the full transcript is saved word for word, and every trading rule is pulled out in the trader's own words, then checked against the transcript a second time.</p>
+  </header>
+  <section class="input-box">
+    <div class="row urls-head"><label class="label" for="kbUrls">Instagram and YouTube links (comma separated, up to 50)</label><span class="counter zero" id="kbCounter" aria-live="polite">0 links</span></div>
+    <p class="count-note" id="kbCountNote" hidden></p>
+    <textarea id="kbUrls" placeholder="https://www.instagram.com/reel/AbC123/, https://www.youtube.com/watch?v=dQw4w9WgXcQ, https://youtu.be/..."></textarea>
+    <div class="row">
+      <label class="label" for="kbFile">File under</label>
+      <select id="kbFile"><option value="">Detect trader from the account or channel</option></select>
+    </div>
+    <div class="row">
+      <button class="primary" id="kbGo">Add to knowledge base</button>
+      <button id="kbStop" hidden>Stop after current step</button>
+      <span class="status" id="kbStatus"></span>
+    </div>
+    <div class="keys-missing" id="kbMissing" hidden><span id="kbMissingText">Add your Neon database URL, Groq key and Apify token to start.</span><button type="button" id="kbOpenKeys">Add API keys</button></div>
+    <div class="notice" id="kbNotice" hidden></div>
+    <p class="hint">Instagram reels go through your Make webhook. YouTube videos need captions on YouTube (most have auto captions). Long videos are read in 3-minute parts, so a 1-hour video takes about 15–25 minutes on free Groq keys. Keep this page open until it finishes. If it stops, paste the same links again and it carries on where it left off.</p>
+  </section>
+  <section class="jobs" id="kbJobs" aria-live="polite"></section>
+  <section class="traders">
+    <div class="usage-head"><h2>Traders</h2><div class="row"><span class="status" id="tStamp"></span><button type="button" id="tRefresh">Refresh</button></div></div>
+    <div class="tgrid" id="traderList"></div>
+  </section>
+</div>
+
+<div class="wrap" id="viewTrader" hidden></div>
 </main>
 </div>
 <div class="scrim" id="scrim" hidden></div>
 <aside class="drawer" id="drawer" aria-label="API keys" aria-hidden="true" inert>
   <div class="drawer-in">
     <h2>API keys</h2>
-    <p class="hint">Everything runs on your own accounts, so you only pay for what you use. All three are required.</p>
+    <p class="hint">Everything runs on your own accounts, so you only pay for what you use. Transcribing needs the Make webhook, a Groq key and an Apify token. The knowledge base also needs your Neon database URL.</p>
     <div class="field">
       <label class="label" for="kHook">Make.com webhook URL</label>
       <input id="kHook" type="url" autocomplete="off" spellcheck="false" placeholder="https://hook.eu1.make.com/...">
@@ -220,6 +311,21 @@ body{padding:0;margin:0}
           <li>Paste the copied address above. It looks like <code>https://hook.eu1.make.com/abc123…</code></li>
         </ol>
         <p>Your Groq and Apify keys below are sent to your own scenario with each reel, so you don't need to type them into Make. Each reel uses about 10 Make operations (the free plan has 1,000 a month).</p>
+      </details>
+    </div>
+    <div class="field">
+      <label class="label" for="kNeon">Neon database URL (for the knowledge base)</label>
+      <input id="kNeon" class="kNeon" type="password" autocomplete="off" spellcheck="false" placeholder="postgresql://user:password@ep-....neon.tech/neondb?sslmode=require">
+      <details class="steps" id="neonSteps">
+        <summary>How to get your Neon database URL (about 2 minutes)</summary>
+        <ol>
+          <li>Sign up or log in at <a href="https://console.neon.tech/signup" target="_blank" rel="noopener">neon.tech</a>. The free plan is enough.</li>
+          <li>Click <b>New project</b>. Any name works. Pick the region closest to you and click <b>Create</b>.</li>
+          <li>On the project dashboard, click <b>Connect</b>. Leave the defaults (branch <b>main</b>, database <b>neondb</b>).</li>
+          <li>Click <b>Show password</b>, then copy the whole connection string. It starts with <code>postgresql://</code> and contains <code>neon.tech</code>.</li>
+          <li>Paste it above and click <b>Save keys</b>. The tables are created automatically the first time you add a video.</li>
+        </ol>
+        <p>Anyone with this URL can read and change your knowledge base, so share it only with your teammates. Everyone who pastes the same URL works on the same knowledge base.</p>
       </details>
     </div>
     <div class="field">
@@ -339,7 +445,7 @@ const KEY_STORE = "reelScriptKeys";
 function getKeys(){ try { return JSON.parse(localStorage.getItem(KEY_STORE) || "{}"); } catch { return {}; } }
 function saveKeys(k){ try { localStorage.setItem(KEY_STORE, JSON.stringify(k)); return true; } catch { return false; } }
 let memKeys = getKeys();
-function normKeys(k){ k = k || {}; const arr = v => (Array.isArray(v) ? v : (v ? [v] : [])).filter(Boolean); return {hook: k.hook || "", groq: arr(k.groq), apify: arr(k.apify)}; }
+function normKeys(k){ k = k || {}; const arr = v => (Array.isArray(v) ? v : (v ? [v] : [])).filter(Boolean); return {hook: k.hook || "", neon: k.neon || "", groq: arr(k.groq), apify: arr(k.apify)}; }
 memKeys = normKeys(memKeys);
 function keysReady(k = memKeys){ return !!(k.hook && k.groq.length && k.apify.length); }
 function pickKeys(i, attempt){ const g = memKeys.groq, a = memKeys.apify; const gi = (i + attempt) % g.length, ai = (i + attempt) % a.length; return {groq: g[gi], apify: a[ai], gi, ai}; }
@@ -441,23 +547,24 @@ $("copyAll").addEventListener("click", e => {
 });
 
 const drawer = $("drawer"), scrim = $("scrim");
-function fillForm(){ [1,2,3].forEach(n => { $("kGroq"+n).value = memKeys.groq[n-1] || ""; $("kApify"+n).value = memKeys.apify[n-1] || ""; }); $("kHook").value = memKeys.hook || ""; $("kErr").hidden = true; }
-function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => $("kHook").focus(), 50); $("hookSteps").open = !memKeys.hook; }
+function fillForm(){ [1,2,3].forEach(n => { $("kGroq"+n).value = memKeys.groq[n-1] || ""; $("kApify"+n).value = memKeys.apify[n-1] || ""; }); $("kHook").value = memKeys.hook || ""; $("kNeon").value = memKeys.neon || ""; $("kErr").hidden = true; }
+function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => { if (!drawer.contains(document.activeElement)) $("kHook").focus(); }, 50); $("hookSteps").open = !memKeys.hook; $("neonSteps").open = !memKeys.neon && !!memKeys.hook; }
 function closeDrawer(){ drawer.classList.remove("open"); drawer.setAttribute("inert",""); drawer.setAttribute("aria-hidden","true"); scrim.hidden = true; $("navKeys").setAttribute("aria-expanded","false"); $("navKeys").focus(); }
-function updateKeyUi(){ const ok = keysReady(); $("keyDot").className = "dot" + (ok ? " on" : ""); $("keysMissing").hidden = ok; $("go").disabled = !ok && false; }
+function updateKeyUi(){ const ok = keysReady(); $("keyDot").className = "dot" + (ok ? " on" : ""); $("keysMissing").hidden = ok; if (typeof kbKeyUi === "function") kbKeyUi(); }
 $("navKeys").addEventListener("click", () => drawer.classList.contains("open") ? closeDrawer() : openDrawer());
 $("openKeys2").addEventListener("click", openDrawer);
 $("navHome").addEventListener("click", () => { closeDrawer(); showView("transcribe"); });
 $("kCancel").addEventListener("click", closeDrawer);
 scrim.addEventListener("click", closeDrawer);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer.classList.contains("open")) closeDrawer(); });
-$("kShow").addEventListener("change", e => { document.querySelectorAll(".kGroq,.kApify").forEach(x => x.type = e.target.checked ? "text" : "password"); });
+$("kShow").addEventListener("change", e => { document.querySelectorAll(".kGroq,.kApify,.kNeon").forEach(x => x.type = e.target.checked ? "text" : "password"); });
 $("kSave").addEventListener("click", () => {
   const vals = cls => [...document.querySelectorAll("." + cls)].map(x => x.value.trim()).filter(Boolean);
-  const k = { hook: $("kHook").value.trim(), groq: [...new Set(vals("kGroq"))], apify: [...new Set(vals("kApify"))] };
+  const k = { hook: $("kHook").value.trim(), neon: $("kNeon").value.trim(), groq: [...new Set(vals("kGroq"))], apify: [...new Set(vals("kApify"))] };
   const err = [];
   if (!k.hook) err.push("Add your Make.com webhook URL.");
   else if (!/^https:\/\/hook\.[a-z0-9]+\.make\.com\/[A-Za-z0-9]+$/.test(k.hook)) err.push("The Make webhook should look like https://hook.eu1.make.com/abc123.");
+  if (k.neon && !/^postgres(ql)?:\/\/[^\s@]+@[^\s/]+\.neon\.(tech|build)(:\d+)?\/\S*$/.test(k.neon)) err.push("The Neon URL should look like postgresql://user:password@ep-....neon.tech/neondb?sslmode=require.");
   if (!k.groq.length) err.push("Add at least one Groq API key.");
   else if (k.groq.some(x => !/^gsk_[A-Za-z0-9]{20,}$/.test(x))) err.push("Groq keys should start with gsk_.");
   if (!k.apify.length) err.push("Add at least one Apify API token.");
@@ -465,7 +572,7 @@ $("kSave").addEventListener("click", () => {
   if (err.length){ $("kErr").textContent = err.join(" "); $("kErr").hidden = false; return; }
   memKeys = k;
   const stored = saveKeys(k);
-  updateKeyUi(); closeDrawer(); refreshApify();
+  updateKeyUi(); closeDrawer(); refreshApify(); if (!$("viewKb").hidden) loadTraders();
   $("status").textContent = stored ? "Keys saved in this browser." : "Keys saved for this visit only (your browser blocks storage).";
 });
 $("kClear").addEventListener("click", () => { memKeys = normKeys({}); try { localStorage.removeItem(KEY_STORE); } catch {} fillForm(); updateKeyUi(); $("status").textContent = "Keys removed from this browser."; });
@@ -566,18 +673,20 @@ async function refreshApify(){
   renderUsage();
 }
 $("usageRefresh").addEventListener("click", refreshApify);
-function showView(name){
-  $("viewTranscribe").hidden = name !== "transcribe"; $("viewUsage").hidden = name !== "usage";
-  $("navHome").toggleAttribute("aria-current", name === "transcribe"); $("navUsage").toggleAttribute("aria-current", name === "usage");
-  if ($("navHome").hasAttribute("aria-current")) $("navHome").setAttribute("aria-current","page");
-  if ($("navUsage").hasAttribute("aria-current")) $("navUsage").setAttribute("aria-current","page");
+const VIEWS = {transcribe:["viewTranscribe","navHome"], usage:["viewUsage","navUsage"], kb:["viewKb","navKb"], trader:["viewTrader","navKb"]};
+function showView(name, hash){
+  for (const [k, [v]] of Object.entries(VIEWS)) $(v).hidden = k !== name;
+  ["navHome","navUsage","navKb"].forEach(n => $(n).removeAttribute("aria-current"));
+  $(VIEWS[name][1]).setAttribute("aria-current", "page");
   if (name === "usage") refreshApify();
-  try { history.replaceState(null, "", name === "usage" ? "#usage" : "#"); } catch {}
+  if (name === "kb") loadTraders();
+  try { history.replaceState(null, "", hash || (name === "transcribe" ? location.pathname : "#" + name)); } catch {}
   window.scrollTo({top:0});
 }
 $("navUsage").addEventListener("click", () => { closeDrawer(); showView("usage"); });
-if (location.hash === "#usage") showView("usage");
+$("navKb").addEventListener("click", () => { closeDrawer(); showView("kb"); });
 renderUsage(); refreshApify();
 </script>
+<script src="/kb-app.js"></script>
 </body>
 </html>

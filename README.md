@@ -1,6 +1,6 @@
 # Reel Script Desk
 
-Paste Instagram reel links (comma separated, up to 30). For each reel you get the cover image and account (to confirm it's the right post), a title, the topic, editing notes, and the full script in English. Hindi, Kannada and other languages are translated; English is kept word for word. The original transcript is shown too.
+Paste Instagram reel links (comma separated, up to 50). For each reel you get the cover image and account (to confirm it's the right post), a title, the topic, editing notes, and the full script in English. Hindi, Kannada and other languages are translated; English is kept word for word. The original transcript is shown too.
 
 ## How it works
 
@@ -31,3 +31,30 @@ Browser → `/api/transcribe` (Vercel function, only forwards) → the user's ow
 - **Apify:** live monthly balance per token from Apify's API (`/api/usage`), shown as "≈ reels left" using an estimated $2.70 per 1,000 reels. It counts down after every reel and re-syncs with Apify after each batch.
 - **Groq:** the free tier resets daily. After each reel, the Make scenario returns Groq's own `x-ratelimit-remaining-requests` headers, so each key shows real "reels left today". Tokens and audio seconds per reel are added up per key.
 - Totals (blue pills) add up all keys. Pills turn orange under 20 reels left and red when empty.
+
+## Trader knowledge base
+
+Open **Knowledge base** in the left menu. Paste Instagram reels and YouTube videos together (comma separated, up to 50; `watch`, `youtu.be`, `shorts` and `live` links all work).
+
+For each link:
+
+1. **Transcript.** Instagram reels go through the user's Make webhook (same as Transcribe). YouTube videos use Apify's YouTube Scraper (`streamers/youtube-scraper`) in captions-only mode, so the video needs captions on YouTube (auto captions are fine).
+2. **Trader detection.** The Instagram handle or YouTube channel is looked up. A known account goes to its trader page; a new channel whose name matches an existing trader goes there; otherwise a new trader page is created. The "File under" menu forces a trader, and **Merge** joins two pages (for example an Instagram handle and a YouTube channel of the same person). After a merge, both accounts file under that page.
+3. **Full transcript, word for word.** The original-language transcript and the English version are both saved. YouTube transcripts keep `[mm:ss]` timestamps.
+4. **Rule extraction** with `openai/gpt-oss-120b`, in 3-minute parts:
+   - translate (when not English, line by line, never summarized),
+   - extract every rule with the trader's exact quote, explanation, conditions, entry, stop loss, target, invalidation, timeframe, instruments, indicators and settings. Anything the trader didn't say is written as "Not stated", and gaps go into "Not specified by the trader",
+   - verify: a second pass audits every field against the transcript and lists missed rules; the quote is also checked word for word in code. Rules that pass everything are **Verified against transcript**; anything else is marked **Needs review** with the reason.
+
+Each trader page has **Copy knowledge base** and **Download .md** at the top (a Markdown file for AI: rules grouped by concept, quotes, sources with timestamps, and every full transcript), plus tabs for Rules (search, filter by concept, "only rules to review"), Knowledge graph (concepts and how they connect), Sources & transcripts (re-extract or delete a source), and Manage (rename, merge, delete).
+
+Everything is stored in the user's own **Neon** Postgres database. Paste its connection string in **API keys** (steps are shown under the field). Tables are created automatically. Anyone with the URL can read and write the data, so share it only with teammates who should build the same knowledge base.
+
+Browser → `/api/youtube` (Apify) or `/api/transcribe` (Make) → `/api/kb` (Neon + Groq, one step per call) → the user's Neon database.
+
+### Limits
+
+- Groq's free tier allows about 8,000 tokens a minute for `gpt-oss-120b`, so parts run one step at a time and the page waits and rotates keys when it hits the limit. A 1-hour video takes about 15–25 minutes.
+- YouTube videos without captions aren't supported yet.
+- Neon's free plan includes limited storage per project (see neon.com/pricing). Transcripts are text, so thousands of videos fit.
+- No automatic process can promise zero mistakes. Every rule carries its exact quote and source so it can be checked, and anything that fails a check is marked Needs review.
