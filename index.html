@@ -91,6 +91,10 @@ body{padding:0;margin:0}
 .field small{color:var(--muted);font-size:.8rem}
 .field small a{color:var(--accent)}
 .field .bad{color:var(--bad)}
+.steps{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);font-size:.85rem}
+.steps ol{margin:8px 0;padding-left:1.2rem;display:grid;gap:6px}
+.steps p{margin:6px 0 0;color:var(--muted)}
+.steps a{color:var(--accent)} .steps code{font-family:var(--mono);font-size:.78rem;word-break:break-all}
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:15}
 .keys-missing{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:12px 16px}
 @media (max-width:760px){
@@ -129,10 +133,10 @@ body{padding:0;margin:0}
       <button id="copyAll" hidden>Copy all scripts</button>
       <span class="status" id="status"></span>
     </div>
-    <div class="keys-missing" id="keysMissing" hidden><span>Add your Groq key and an Apify token (or Make webhook) to start.</span><button type="button" id="openKeys2">Add API keys</button></div>
+    <div class="keys-missing" id="keysMissing" hidden><span>Add your Make webhook, Groq key and Apify token to start.</span><button type="button" id="openKeys2">Add API keys</button></div>
     <div class="bar" id="barWrap" hidden><i id="bar"></i></div>
     <div class="notice" id="notice" hidden></div>
-    <p class="hint">Three reels run at a time, about 30–60 seconds each, so 30 reels take roughly 8–12 minutes. Keep this page open until it finishes. Only public reels work. Usage is billed to your own Groq and Apify accounts.</p>
+    <p class="hint">Three reels run at a time, about 30–60 seconds each, so 30 reels take roughly 8–12 minutes. Keep this page open until it finishes. Only public reels work. Usage is billed to your own Make, Groq and Apify accounts.</p>
   </section>
 
   <section class="list" id="list">
@@ -153,21 +157,32 @@ body{padding:0;margin:0}
 <aside class="drawer" id="drawer" aria-label="API keys" aria-hidden="true" inert>
   <div class="drawer-in">
     <h2>API keys</h2>
-    <p class="hint">Transcripts run on your own accounts, so you pay only for what you use. Groq is required. Add either an Apify token (simplest) or your own Make webhook.</p>
+    <p class="hint">Everything runs on your own accounts, so you only pay for what you use. All three are required.</p>
     <div class="field">
-      <label class="label" for="kGroq">Groq API key (required)</label>
+      <label class="label" for="kHook">Make.com webhook URL</label>
+      <input id="kHook" type="url" autocomplete="off" spellcheck="false" placeholder="https://hook.eu1.make.com/...">
+      <details class="steps" id="hookSteps">
+        <summary>How to create your webhook (about 3 minutes)</summary>
+        <ol>
+          <li>Sign up or log in at <a href="https://www.make.com/en/register" target="_blank" rel="noopener">make.com</a>. The free plan is enough to start.</li>
+          <li><a href="/make-blueprint.json" download="reel-script-desk-make-blueprint.json">Download the scenario blueprint</a>.</li>
+          <li>In Make, open <b>Scenarios</b>, click <b>Create a new scenario</b>, then the <b>⋯</b> menu at the bottom, then <b>Import Blueprint</b>. Choose the file you downloaded and click <b>Save</b>.</li>
+          <li>Click the first module (<b>Webhooks</b>), click <b>Add</b>, give it any name, and click <b>Save</b>. Click <b>Copy address to clipboard</b>, then <b>OK</b>.</li>
+          <li>Click <b>Save</b> (the disk icon) at the bottom, then switch the scenario <b>ON</b> with the toggle. Leave scheduling at <b>Immediately as data arrives</b>.</li>
+          <li>Paste the copied address above. It looks like <code>https://hook.eu1.make.com/abc123…</code></li>
+        </ol>
+        <p>Your Groq and Apify keys below are sent to your own scenario with each reel, so you don't need to type them into Make. Each reel uses about 10 Make operations (the free plan has 1,000 a month).</p>
+      </details>
+    </div>
+    <div class="field">
+      <label class="label" for="kGroq">Groq API key</label>
       <input id="kGroq" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_...">
-      <small>Get one free at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a></small>
+      <small>Free at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. Click <b>Create API Key</b> and copy it.</small>
     </div>
     <div class="field">
       <label class="label" for="kApify">Apify API token</label>
       <input id="kApify" type="password" autocomplete="off" spellcheck="false" placeholder="apify_api_...">
-      <small>Free $5 credit each month. <a href="https://console.apify.com/settings/integrations" target="_blank" rel="noopener">console.apify.com → Settings → API &amp; Integrations</a></small>
-    </div>
-    <div class="field">
-      <label class="label" for="kHook">Make.com webhook URL (optional)</label>
-      <input id="kHook" type="url" autocomplete="off" spellcheck="false" placeholder="https://hook.eu1.make.com/...">
-      <small>Leave empty to run directly with Apify + Groq. If set, each reel is sent to your Make scenario with your keys.</small>
+      <small>Free $5 credit each month. <a href="https://console.apify.com/settings/integrations" target="_blank" rel="noopener">console.apify.com → Settings → API &amp; Integrations</a>, then copy the Personal API token.</small>
     </div>
     <label class="row hint"><input type="checkbox" id="kShow"> Show keys</label>
     <p class="err" id="kErr" hidden></p>
@@ -270,7 +285,7 @@ const KEY_STORE = "reelScriptKeys";
 function getKeys(){ try { return JSON.parse(localStorage.getItem(KEY_STORE) || "{}"); } catch { return {}; } }
 function saveKeys(k){ try { localStorage.setItem(KEY_STORE, JSON.stringify(k)); return true; } catch { return false; } }
 let memKeys = getKeys();
-function keysReady(k = memKeys){ return !!(k.groq && (k.apify || k.hook)); }
+function keysReady(k = memKeys){ return !!(k.groq && k.apify && k.hook); }
 
 async function processOne(i, url, card){
   setChip(card, "run", "Transcribing…");
@@ -336,7 +351,7 @@ $("copyAll").addEventListener("click", e => {
 
 const drawer = $("drawer"), scrim = $("scrim");
 function fillForm(){ $("kGroq").value = memKeys.groq || ""; $("kApify").value = memKeys.apify || ""; $("kHook").value = memKeys.hook || ""; $("kErr").hidden = true; }
-function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => $("kGroq").focus(), 50); }
+function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => $("kHook").focus(), 50); $("hookSteps").open = !memKeys.hook; }
 function closeDrawer(){ drawer.classList.remove("open"); drawer.setAttribute("inert",""); drawer.setAttribute("aria-hidden","true"); scrim.hidden = true; $("navKeys").setAttribute("aria-expanded","false"); $("navKeys").focus(); }
 function updateKeyUi(){ const ok = keysReady(); $("keyDot").className = "dot" + (ok ? " on" : ""); $("keysMissing").hidden = ok; $("go").disabled = !ok && false; }
 $("navKeys").addEventListener("click", () => drawer.classList.contains("open") ? closeDrawer() : openDrawer());
@@ -351,7 +366,8 @@ $("kSave").addEventListener("click", () => {
   const err = [];
   if (!k.groq) err.push("Add your Groq API key.");
   else if (!/^gsk_[A-Za-z0-9]{20,}$/.test(k.groq)) err.push("The Groq key should start with gsk_.");
-  if (!k.apify && !k.hook) err.push("Add an Apify token or a Make webhook URL.");
+  if (!k.hook) err.push("Add your Make.com webhook URL.");
+  if (!k.apify) err.push("Add your Apify API token.");
   if (k.apify && !/^apify_api_[A-Za-z0-9]{20,}$/.test(k.apify)) err.push("The Apify token should start with apify_api_.");
   if (k.hook && !/^https:\/\/hook\.[a-z0-9]+\.make\.com\/[A-Za-z0-9]+$/.test(k.hook)) err.push("The Make webhook should look like https://hook.eu1.make.com/abc123.");
   if (err.length){ $("kErr").textContent = err.join(" "); $("kErr").hidden = false; return; }

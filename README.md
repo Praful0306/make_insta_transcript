@@ -6,13 +6,13 @@ Paste Instagram reel links (comma separated, up to 30). For each reel you get th
 
 Every visitor brings their own keys. Open **API keys** in the left menu and add:
 
-- **Groq API key** (required): Whisper large-v3 transcription + `openai/gpt-oss-120b` for the English script, topic and editing notes.
-- **Apify API token**: finds the reel's video, cover and caption (Instagram Scraper).
-- **Make.com webhook URL** (optional): if set, each reel is sent to that Make scenario instead, with `{ url, groqKey, apifyKey }` in the body. The scenario must reply with the same JSON shape (see `api/transcribe.js`).
+- **Groq API key** (required, passed to the user's scenario): Whisper large-v3 transcription + `openai/gpt-oss-120b` for the English script, topic and editing notes.
+- **Apify API token** (required, passed to the user's scenario): finds the reel's video, cover and caption (Instagram Scraper).
+- **Make.com webhook URL** (required): each user imports `make-blueprint.json` into their own Make account, so all runs are billed to them. Steps are shown in the app under the field.
 
 Keys are saved only in the visitor's browser (localStorage), sent with that visitor's own requests, and never stored or logged by the server.
 
-Browser → `/api/transcribe` (Vercel function) → Apify → video download → Groq Whisper → Groq LLM → JSON.
+Browser → `/api/transcribe` (Vercel function, only forwards) → the user's own Make webhook scenario (Apify → video download → Groq Whisper → Groq LLM) → JSON.
 
 ## Deploy on Vercel
 

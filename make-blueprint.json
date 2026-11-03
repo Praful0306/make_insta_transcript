@@ -1,0 +1,298 @@
+{
+ "name": "Reel Script Desk - transcriber",
+ "flow": [
+  {
+   "id": 1,
+   "module": "gateway:CustomWebHook",
+   "version": 1,
+   "parameters": {
+    "hook": null,
+    "maxResults": 1
+   },
+   "mapper": {},
+   "metadata": {
+    "designer": {
+     "x": 0,
+     "y": 0
+    }
+   }
+  },
+  {
+   "id": 3,
+   "module": "http:ActionSendData",
+   "version": 3,
+   "parameters": {
+    "handleErrors": true,
+    "useNewZLibDeCompress": true
+   },
+   "mapper": {
+    "serializeUrl": false,
+    "followRedirect": true,
+    "shareCookies": false,
+    "rejectUnauthorized": true,
+    "followAllRedirects": false,
+    "useMtls": false,
+    "gzip": true,
+    "useQuerystring": false,
+    "timeout": 300,
+    "parseResponse": true,
+    "url": "https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items",
+    "method": "post",
+    "qs": [
+     {
+      "name": "token",
+      "value": "{{1.apifyKey}}"
+     }
+    ],
+    "headers": [],
+    "bodyType": "raw",
+    "contentType": "application/json",
+    "data": "{\"directUrls\":[\"{{trim(1.url)}}\"],\"resultsType\":\"posts\",\"resultsLimit\":1,\"addParentData\":false}"
+   },
+   "metadata": {
+    "designer": {
+     "x": 300,
+     "y": 0,
+     "name": "Apify: get reel data"
+    }
+   }
+  },
+  {
+   "id": 4,
+   "module": "http:ActionGetFile",
+   "version": 3,
+   "parameters": {
+    "handleErrors": true,
+    "useNewZLibDeCompress": true
+   },
+   "mapper": {
+    "url": "{{3.data[1].videoUrl}}",
+    "method": "get",
+    "serializeUrl": false,
+    "shareCookies": false
+   },
+   "metadata": {
+    "designer": {
+     "x": 600,
+     "y": 0,
+     "name": "Download video"
+    }
+   }
+  },
+  {
+   "id": 5,
+   "module": "http:ActionSendData",
+   "version": 3,
+   "parameters": {
+    "handleErrors": true,
+    "useNewZLibDeCompress": true
+   },
+   "mapper": {
+    "serializeUrl": false,
+    "followRedirect": true,
+    "shareCookies": false,
+    "rejectUnauthorized": true,
+    "followAllRedirects": false,
+    "useMtls": false,
+    "gzip": true,
+    "useQuerystring": false,
+    "timeout": 300,
+    "parseResponse": true,
+    "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+    "method": "post",
+    "headers": [
+     {
+      "name": "Authorization",
+      "value": "Bearer {{1.groqKey}}"
+     }
+    ],
+    "qs": [],
+    "bodyType": "multipart_form_data",
+    "formDataFields": [
+     {
+      "key": "file",
+      "fieldType": "file",
+      "data": "{{4.data}}",
+      "fileName": "reel.mp4"
+     },
+     {
+      "key": "model",
+      "fieldType": "text",
+      "value": "whisper-large-v3"
+     },
+     {
+      "key": "response_format",
+      "fieldType": "text",
+      "value": "verbose_json"
+     },
+     {
+      "key": "temperature",
+      "fieldType": "text",
+      "value": "0"
+     }
+    ]
+   },
+   "metadata": {
+    "designer": {
+     "x": 900,
+     "y": 0,
+     "name": "Groq Whisper large-v3"
+    }
+   }
+  },
+  {
+   "id": 8,
+   "module": "http:ActionGetFile",
+   "version": 3,
+   "parameters": {
+    "handleErrors": true,
+    "useNewZLibDeCompress": true
+   },
+   "mapper": {
+    "url": "{{3.data[1].displayUrl}}",
+    "method": "get",
+    "serializeUrl": false,
+    "shareCookies": false
+   },
+   "metadata": {
+    "designer": {
+     "x": 1200,
+     "y": 0,
+     "name": "Download thumbnail"
+    }
+   }
+  },
+  {
+   "id": 9,
+   "module": "json:TransformToJSON",
+   "version": 1,
+   "parameters": {},
+   "mapper": {
+    "object": "DETECTED LANGUAGE: {{5.data.language}}\nDURATION SECONDS: {{5.data.duration}}\nCAPTION: {{3.data[1].caption}}\nTRANSCRIPT:\n{{5.data.text}}"
+   },
+   "metadata": {
+    "designer": {
+     "x": 1500,
+     "y": 0,
+     "name": "Escape LLM input"
+    }
+   }
+  },
+  {
+   "id": 11,
+   "module": "http:ActionSendData",
+   "version": 3,
+   "parameters": {
+    "handleErrors": true,
+    "useNewZLibDeCompress": true
+   },
+   "mapper": {
+    "serializeUrl": false,
+    "followRedirect": true,
+    "shareCookies": false,
+    "rejectUnauthorized": true,
+    "followAllRedirects": false,
+    "useMtls": false,
+    "gzip": true,
+    "useQuerystring": false,
+    "timeout": 300,
+    "parseResponse": true,
+    "url": "https://api.groq.com/openai/v1/chat/completions",
+    "method": "post",
+    "headers": [
+     {
+      "name": "Authorization",
+      "value": "Bearer {{1.groqKey}}"
+     }
+    ],
+    "qs": [],
+    "bodyType": "raw",
+    "contentType": "application/json",
+    "data": "{\"model\": \"openai/gpt-oss-120b\", \"reasoning_effort\": \"low\", \"temperature\": 0.1, \"max_completion_tokens\": 12000, \"response_format\": {\"type\": \"json_object\"}, \"messages\": [{\"role\": \"system\", \"content\": \"You analyze one Instagram reel. You get the detected spoken language, the caption, the duration and the exact speech transcript. Return ONLY a JSON object with these keys: \\\"title\\\": a short name for the reel (max 8 words, English); \\\"topic\\\": what the reel is about, 1-2 sentences in English; \\\"editing\\\": an array of 3-6 short strings describing the hook, structure, pacing and style (voiceover vs talking head, CTA, on-screen text hints) inferred from the transcript, caption and duration; \\\"language\\\": the spoken language name in English (for example English, Hindi, Kannada, Hinglish); \\\"english_script\\\": the COMPLETE script in accurate, natural English. If the transcript is already English, copy it exactly, word for word. If it is Hindi, Kannada or any other language (or mixed), translate EVERY sentence faithfully into English. Never summarize, shorten, skip or add content. Keep the original order. If the transcript is empty or only music, set english_script to \\\"(no speech detected)\\\".\"}, {\"role\": \"user\", \"content\": {{9.json}}}]}"
+   },
+   "metadata": {
+    "designer": {
+     "x": 1800,
+     "y": 0,
+     "name": "Groq LLM: translate + analyse"
+    }
+   }
+  },
+  {
+   "id": 12,
+   "module": "json:TransformToJSON",
+   "version": 1,
+   "parameters": {},
+   "mapper": {
+    "object": "{{5.data.text}}"
+   },
+   "metadata": {
+    "designer": {
+     "x": 2100,
+     "y": 0,
+     "name": "Escape transcript"
+    }
+   }
+  },
+  {
+   "id": 13,
+   "module": "json:TransformToJSON",
+   "version": 1,
+   "parameters": {},
+   "mapper": {
+    "object": "{{ifempty(3.data[1].caption; emptystring)}}"
+   },
+   "metadata": {
+    "designer": {
+     "x": 2400,
+     "y": 0,
+     "name": "Escape caption"
+    }
+   }
+  },
+  {
+   "id": 7,
+   "module": "gateway:WebhookRespond",
+   "version": 1,
+   "parameters": {},
+   "mapper": {
+    "status": "200",
+    "body": "{\"ok\":true,\"owner\":\"{{3.data[1].ownerUsername}}\",\"postUrl\":\"{{3.data[1].url}}\",\"duration\":\"{{5.data.duration}}\",\"detectedLanguage\":\"{{5.data.language}}\",\"caption\":{{13.json}},\"transcript\":{{12.json}},\"thumbnail\":\"data:image/jpeg;base64,{{base64(8.data)}}\",\"ai\":{{11.data.choices[1].message.content}}}",
+    "headers": [
+     {
+      "key": "Content-Type",
+      "value": "application/json; charset=utf-8"
+     },
+     {
+      "key": "Access-Control-Allow-Origin",
+      "value": "*"
+     }
+    ]
+   },
+   "metadata": {
+    "designer": {
+     "x": 2700,
+     "y": 0
+    }
+   }
+  }
+ ],
+ "metadata": {
+  "instant": true,
+  "version": 1,
+  "scenario": {
+   "roundtrips": 1,
+   "maxErrors": 3,
+   "autoCommit": true,
+   "autoCommitTriggerLast": true,
+   "sequential": false,
+   "confidential": false,
+   "dataloss": false,
+   "dlq": false,
+   "freshVariables": false
+  },
+  "designer": {
+   "orphans": []
+  }
+ }
+}
