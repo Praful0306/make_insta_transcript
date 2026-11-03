@@ -10,18 +10,19 @@
 /* Layout: one narrow working column — paste box on top, numbered reel sheets below, like a script binder */
 :root{
   --bg:#f3f5f4; --paper:#ffffff; --ink:#15201d; --muted:#5d6b67; --line:#d9e0dd;
-  --accent:#0f6b5c; --accent-soft:#e1f0ec; --warn:#a4501a; --warn-soft:#fbeee4; --bad:#a3263a; --bad-soft:#fae6ea;
+  --accent:#0f6b5c; --accent-soft:#e1f0ec; --blue:#1d5fd1; --blue-soft:#e3ecfb; --warn:#a4501a; --warn-soft:#fbeee4; --bad:#a3263a; --bad-soft:#fae6ea;
   --display:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --body:"Source Serif 4", Georgia, "Times New Roman", serif;
   --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f1514; --paper:#161e1c; --ink:#e6eeeb; --muted:#93a39e; --line:#2a3633;
-  --accent:#5cc9b3; --accent-soft:#163430; --warn:#e9a070; --warn-soft:#3a2617; --bad:#f08398; --bad-soft:#3b1a22; color-scheme:dark}}
+  --accent:#5cc9b3; --accent-soft:#163430; --blue:#7fa8f5; --blue-soft:#17233b; --warn:#e9a070; --warn-soft:#3a2617; --bad:#f08398; --bad-soft:#3b1a22; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0f1514; --paper:#161e1c; --ink:#e6eeeb; --muted:#93a39e; --line:#2a3633;
-  --accent:#5cc9b3; --accent-soft:#163430; --warn:#e9a070; --warn-soft:#3a2617; --bad:#f08398; --bad-soft:#3b1a22; color-scheme:dark}
+  --accent:#5cc9b3; --accent-soft:#163430; --blue:#7fa8f5; --blue-soft:#17233b; --warn:#e9a070; --warn-soft:#3a2617; --bad:#f08398; --bad-soft:#3b1a22; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--display);line-height:1.5;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
 .wrap{max-width:860px;margin:0 auto;display:grid;gap:22px}
@@ -111,6 +112,24 @@ body{padding:0;margin:0}
   .drawer{left:0;width:100vw;transform:translateX(-100%);padding-top:env(safe-area-inset-top,0px)}
 }
 @media (prefers-reduced-motion:reduce){.drawer{transition:none}}
+
+.usage{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:14px}
+.usage-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.usage-head h2{margin:0;font-size:1.1rem}
+.totals{display:flex;flex-wrap:wrap;gap:10px}
+.pill{display:inline-flex;gap:8px;align-items:baseline;background:var(--blue);color:var(--paper);border-radius:99px;padding:7px 14px;font:600 .9rem var(--display);font-variant-numeric:tabular-nums}
+.pill small{font:500 .75rem var(--mono);opacity:.85}
+.pill.low{background:var(--warn)} .pill.out{background:var(--bad)}
+.ugrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.ucard{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:6px;min-width:0;background:var(--bg)}
+.ucard .k{display:flex;justify-content:space-between;gap:8px;font:600 .8rem var(--mono);color:var(--muted)}
+.ucard .big{font:700 1.25rem var(--display);color:var(--blue);font-variant-numeric:tabular-nums}
+.ucard .big.low{color:var(--warn)} .ucard .big.out{color:var(--bad)}
+.ucard p{margin:0;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.ubar{height:8px;border-radius:99px;background:var(--blue-soft);overflow:hidden}
+.ubar>i{display:block;height:100%;background:var(--blue);transition:width .4s}
+.ubar.low>i{background:var(--warn)} .ubar.out>i{background:var(--bad)}
+.usage .note{margin:0;font-size:.8rem;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -119,6 +138,7 @@ body{padding:0;margin:0}
 <nav class="side" aria-label="Main menu">
   <div class="brand">Reel Script Desk</div>
   <button class="nav" type="button" aria-current="page" id="navHome">Transcribe</button>
+  <button class="nav" type="button" id="navUsage">Usage</button>
   <button class="nav" type="button" id="navKeys" aria-expanded="false" aria-controls="drawer">API keys <span class="dot" id="keyDot" aria-hidden="true"></span></button>
   <p class="side-foot">Your keys stay in this browser. They're sent only with your own requests and never saved on our server.</p>
 </nav>
@@ -143,6 +163,19 @@ body{padding:0;margin:0}
     <div class="bar" id="barWrap" hidden><i id="bar"></i></div>
     <div class="notice" id="notice" hidden></div>
     <p class="hint">Three reels run at a time, about 30–60 seconds each, so 50 reels take roughly 15–20 minutes. Keep this page open until it finishes. Only public reels work. Usage is billed to your own Make, Groq and Apify accounts.</p>
+  </section>
+
+  <section class="usage" id="usage" aria-labelledby="usageTitle">
+    <div class="usage-head">
+      <h2 id="usageTitle">Team usage</h2>
+      <div class="row"><span class="status" id="usageStamp"></span><button type="button" id="usageRefresh">Refresh</button></div>
+    </div>
+    <div class="totals" id="usageTotals"></div>
+    <div><span class="label">Apify scraper (monthly credit, live from Apify)</span></div>
+    <div class="ugrid" id="apifyCards"></div>
+    <div><span class="label">Groq (daily limits, read from Groq after each reel)</span></div>
+    <div class="ugrid" id="groqCards"></div>
+    <p class="note">Apify credit is your real account balance and resets each billing month. Groq's free tier resets every day, not monthly. Its numbers appear after the first reel each key processes. Token totals count reels run in this browser.</p>
   </section>
 
   <section class="list" id="list">
@@ -300,9 +333,10 @@ let memKeys = getKeys();
 function normKeys(k){ k = k || {}; const arr = v => (Array.isArray(v) ? v : (v ? [v] : [])).filter(Boolean); return {hook: k.hook || "", groq: arr(k.groq), apify: arr(k.apify)}; }
 memKeys = normKeys(memKeys);
 function keysReady(k = memKeys){ return !!(k.hook && k.groq.length && k.apify.length); }
-function pickKeys(i, attempt){ const g = memKeys.groq, a = memKeys.apify; return {groq: g[(i + attempt) % g.length], apify: a[(i + attempt) % a.length]}; }
+function pickKeys(i, attempt){ const g = memKeys.groq, a = memKeys.apify; const gi = (i + attempt) % g.length, ai = (i + attempt) % a.length; return {groq: g[gi], apify: a[ai], gi, ai}; }
 
 async function processOnce(i, url, card, attempt){
+  let used = null;
   const started = Date.now();
   const tag = attempt ? ` (key set ${attempt + 1})` : "";
   setChip(card, "run", "Transcribing…" + tag);
@@ -310,13 +344,14 @@ async function processOnce(i, url, card, attempt){
   try {
     const res = await fetch("/api/transcribe", {
       method: "POST",
-      headers: (() => { const k = pickKeys(i, attempt); return {"Content-Type": "application/json", "x-groq-key": k.groq, "x-apify-key": k.apify, "x-make-webhook": memKeys.hook}; })(),
+      headers: (() => { const k = pickKeys(i, attempt); used = k; return {"Content-Type": "application/json", "x-groq-key": k.groq, "x-apify-key": k.apify, "x-make-webhook": memKeys.hook}; })(),
       body: JSON.stringify({url})
     });
     const text = await res.text();
     let data; try { data = JSON.parse(text); } catch { throw new Error("The server didn't return a result. Try this reel again."); }
     if (res.status === 400 && /key|token|webhook/i.test(data.error || "")){ const e = new Error(data.error); e.code = "keys"; throw e; }
     if (!res.ok || !data.ok) throw new Error(data.error || "Make couldn't process this reel.");
+    if (used) recordUsage(used, data);
     return data;
   } finally { clearInterval(tick); }
 }
@@ -370,6 +405,7 @@ async function start(){
   }
   await Promise.all(Array.from({length: Math.min(CONCURRENCY, urls.length)}, worker));
   $("status").textContent = `${done} done${failed ? `, ${failed} failed` : ""}${stopRequested ? " (stopped)" : ""}`;
+  refreshApify();
   $("go").disabled = false; $("stop").hidden = true; $("copyAll").hidden = done === 0;
 }
 
@@ -420,11 +456,109 @@ $("kSave").addEventListener("click", () => {
   if (err.length){ $("kErr").textContent = err.join(" "); $("kErr").hidden = false; return; }
   memKeys = k;
   const stored = saveKeys(k);
-  updateKeyUi(); closeDrawer();
+  updateKeyUi(); closeDrawer(); refreshApify();
   $("status").textContent = stored ? "Keys saved in this browser." : "Keys saved for this visit only (your browser blocks storage).";
 });
 $("kClear").addEventListener("click", () => { memKeys = normKeys({}); try { localStorage.removeItem(KEY_STORE); } catch {} fillForm(); updateKeyUi(); $("status").textContent = "Keys removed from this browser."; });
 updateKeyUi();
+
+/* ---------- Team usage dashboard ---------- */
+const APIFY_USD_PER_REEL = 0.0027; // estimate: Instagram Scraper ≈ $2.70 per 1,000 posts
+const USAGE_STORE = "reelScriptUsage";
+const keyId = k => k ? k.slice(-6) : "";
+const today = () => new Date().toISOString().slice(0,10);
+const month = () => new Date().toISOString().slice(0,7);
+function loadUsage(){ try { return JSON.parse(localStorage.getItem(USAGE_STORE) || "{}"); } catch { return {}; } }
+let usage = loadUsage(); usage.groq = usage.groq || {}; usage.apify = usage.apify || {};
+function saveUsage(){ try { localStorage.setItem(USAGE_STORE, JSON.stringify(usage)); } catch {} }
+const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+
+function recordUsage(k, data){
+  const u = data.usage || {};
+  const gid = keyId(k.groq), aid = keyId(k.apify);
+  const g = usage.groq[gid] = usage.groq[gid] || {};
+  if (g.month !== month()){ g.month = month(); g.reels = 0; g.tokens = 0; g.audioSec = 0; }
+  if (g.day !== today()){ g.day = today(); g.dayReels = 0; g.dayTokens = 0; g.limits = null; }
+  const tok = num(u.totalTokens) || 0;
+  g.reels++; g.dayReels++; g.tokens += tok; g.dayTokens += tok; g.audioSec += num(u.audioSeconds) || num(data.duration) || 0;
+  const lim = { llmReqLimit: num(u.llmReqLimit), llmReqRemaining: num(u.llmReqRemaining), sttReqLimit: num(u.sttReqLimit), sttReqRemaining: num(u.sttReqRemaining) };
+  if (lim.llmReqLimit || lim.sttReqLimit) g.limits = lim;
+  const a = usage.apify[aid] = usage.apify[aid] || {};
+  if (a.month !== month()){ a.month = month(); a.reels = 0; }
+  a.reels++; a.sinceLive = (a.sinceLive || 0) + 1;
+  saveUsage(); renderUsage();
+}
+
+function level(frac){ return frac <= 0.02 ? "out" : frac <= 0.2 ? "low" : ""; }
+function bar(frac){ const b = el("div", {class:"ubar " + level(frac)}); const i = el("i"); i.style.width = Math.max(0, Math.min(100, frac * 100)).toFixed(1) + "%"; b.append(i); return b; }
+
+function renderUsage(){
+  const ac = $("apifyCards"), gc = $("groqCards"), tot = $("usageTotals");
+  ac.textContent = ""; gc.textContent = ""; tot.textContent = "";
+  if (!keysReady()){ tot.append(el("p", {class:"note"}, "Add your API keys to see each key's remaining capacity.")); return; }
+  let apifyLeft = 0, apifyKnown = false, groqLeft = 0, groqKnown = false, tokensMonth = 0, reelsMonth = 0;
+  memKeys.apify.forEach((key, n) => {
+    const id = keyId(key), a = usage.apify[id] || {}, live = a.live;
+    const card = el("div", {class:"ucard"}, el("div", {class:"k"}, el("span", {}, `Apify key ${n+1}`), el("span", {}, "…" + id)));
+    if (live && live.ok && live.limitUsd > 0){
+      const spent = live.usedUsd + (a.sinceLive || 0) * APIFY_USD_PER_REEL;
+      const leftUsd = Math.max(0, live.limitUsd - spent), frac = leftUsd / live.limitUsd;
+      const reelsLeft = Math.floor(leftUsd / APIFY_USD_PER_REEL);
+      apifyLeft += reelsLeft; apifyKnown = true;
+      card.append(el("div", {class:"big " + level(frac)}, `≈ ${reelsLeft.toLocaleString()} reels left`), bar(frac),
+        el("p", {}, `$${spent.toFixed(2)} of $${live.limitUsd.toFixed(2)} used · ${a.reels || 0} reels this month here`),
+        live.cycleEnd ? el("p", {}, `Resets ${new Date(live.cycleEnd).toLocaleDateString()}`) : null);
+    } else if (live && !live.ok){
+      card.append(el("div", {class:"big out"}, live.error || "Unavailable"), el("p", {}, "Check this token in API keys."));
+    } else {
+      card.append(el("div", {class:"big"}, "Checking…"), el("p", {}, "Live balance loads from Apify."));
+    }
+    ac.append(card);
+  });
+  memKeys.groq.forEach((key, n) => {
+    const id = keyId(key), g = usage.groq[id] || {};
+    const fresh = g.day === today() && g.limits;
+    const card = el("div", {class:"ucard"}, el("div", {class:"k"}, el("span", {}, `Groq key ${n+1}`), el("span", {}, "…" + id)));
+    if (g.month === month()){ tokensMonth += g.tokens || 0; reelsMonth += g.reels || 0; }
+    if (fresh){
+      const L = g.limits;
+      const pairs = [[L.llmReqRemaining, L.llmReqLimit], [L.sttReqRemaining, L.sttReqLimit]].filter(p => p[0] != null && p[1]);
+      const left = Math.min(...pairs.map(p => p[0])), cap = Math.min(...pairs.map(p => p[1]));
+      const frac = cap ? left / cap : 0;
+      groqLeft += left; groqKnown = true;
+      card.append(el("div", {class:"big " + level(frac)}, `${left.toLocaleString()} reels left today`), bar(frac),
+        el("p", {}, `${g.dayReels || 0} reels and ${(g.dayTokens || 0).toLocaleString()} tokens used today`));
+    } else {
+      card.append(el("div", {class:"big"}, "Not used yet today"), el("p", {}, "Limits show after this key's first reel today."));
+    }
+    const avg = g.reels ? Math.round((g.tokens || 0) / g.reels) : null;
+    card.append(el("p", {}, `This month: ${g.month === month() ? (g.reels || 0) : 0} reels · ${g.month === month() ? (g.tokens || 0).toLocaleString() : 0} tokens${avg ? ` · ≈ ${avg.toLocaleString()} per reel` : ""}`));
+    gc.append(card);
+  });
+  const p = (cls, main, sub) => el("span", {class:"pill " + cls}, main, el("small", {}, sub));
+  tot.append(apifyKnown ? p(apifyLeft < 20 ? (apifyLeft < 1 ? "out" : "low") : "", `≈ ${apifyLeft.toLocaleString()} reels`, "Apify left this month") : p("", "Apify", "checking…"));
+  tot.append(groqKnown ? p(groqLeft < 20 ? (groqLeft < 1 ? "out" : "low") : "", `${groqLeft.toLocaleString()} reels`, "Groq left today") : p("", "Groq", "after first reel"));
+  tot.append(p("", `${reelsMonth.toLocaleString()} reels`, `${tokensMonth.toLocaleString()} tokens this month`));
+}
+
+async function refreshApify(){
+  if (!keysReady()) { renderUsage(); return; }
+  $("usageStamp").textContent = "Updating…";
+  try {
+    const r = await fetch("/api/usage", { method: "POST", headers: { "x-apify-keys": memKeys.apify.join(",") } });
+    const d = await r.json();
+    (d.apify || []).forEach(x => {
+      const id = keyId(memKeys.apify[x.index]); const a = usage.apify[id] = usage.apify[id] || {};
+      a.live = x; a.sinceLive = 0;
+    });
+    saveUsage();
+    $("usageStamp").textContent = "Updated " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  } catch { $("usageStamp").textContent = "Couldn't load Apify usage."; }
+  renderUsage();
+}
+$("usageRefresh").addEventListener("click", refreshApify);
+$("navUsage").addEventListener("click", () => { closeDrawer(); $("usage").scrollIntoView({behavior:"smooth", block:"start"}); });
+renderUsage(); refreshApify();
 </script>
 </body>
 </html>

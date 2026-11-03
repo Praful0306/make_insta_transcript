@@ -25,3 +25,9 @@ Browser → `/api/transcribe` (Vercel function, only forwards) → the user's ow
 - Only public reels and video posts work; videos over 25 MB are rejected by Groq.
 - Editing notes are inferred from audio and caption, not from the video frames.
 - Costs go to each user's own accounts: Apify (~$2–3 per 1,000 reels, $5 free monthly credit) and Groq (free tier, then very cheap).
+
+## Team usage dashboard
+
+- **Apify:** live monthly balance per token from Apify's API (`/api/usage`), shown as "≈ reels left" using an estimated $2.70 per 1,000 reels. It counts down after every reel and re-syncs with Apify after each batch.
+- **Groq:** the free tier resets daily. After each reel, the Make scenario returns Groq's own `x-ratelimit-remaining-requests` headers, so each key shows real "reels left today". Tokens and audio seconds per reel are added up per key.
+- Totals (blue pills) add up all keys. Pills turn orange under 20 reels left and red when empty.

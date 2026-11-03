@@ -257,7 +257,7 @@
    "parameters": {},
    "mapper": {
     "status": "200",
-    "body": "{\"ok\":true,\"owner\":\"{{3.data[1].ownerUsername}}\",\"postUrl\":\"{{3.data[1].url}}\",\"duration\":\"{{5.data.duration}}\",\"detectedLanguage\":\"{{5.data.language}}\",\"caption\":{{13.json}},\"transcript\":{{12.json}},\"thumbnail\":\"data:image/jpeg;base64,{{base64(8.data)}}\",\"ai\":{{11.data.choices[1].message.content}}}",
+    "body": "{\"ok\":true,\"usage\":{\"promptTokens\":\"{{11.data.usage.prompt_tokens}}\",\"completionTokens\":\"{{11.data.usage.completion_tokens}}\",\"totalTokens\":\"{{11.data.usage.total_tokens}}\",\"audioSeconds\":\"{{5.data.duration}}\",\"llmReqLimit\":\"{{first(map(11.headers; \"value\"; \"name\"; \"x-ratelimit-limit-requests\"))}}\",\"llmReqRemaining\":\"{{first(map(11.headers; \"value\"; \"name\"; \"x-ratelimit-remaining-requests\"))}}\",\"llmTokLimit\":\"{{first(map(11.headers; \"value\"; \"name\"; \"x-ratelimit-limit-tokens\"))}}\",\"llmTokRemaining\":\"{{first(map(11.headers; \"value\"; \"name\"; \"x-ratelimit-remaining-tokens\"))}}\",\"sttReqLimit\":\"{{first(map(5.headers; \"value\"; \"name\"; \"x-ratelimit-limit-requests\"))}}\",\"sttReqRemaining\":\"{{first(map(5.headers; \"value\"; \"name\"; \"x-ratelimit-remaining-requests\"))}}\"},\"owner\":\"{{3.data[1].ownerUsername}}\",\"postUrl\":\"{{3.data[1].url}}\",\"duration\":\"{{5.data.duration}}\",\"detectedLanguage\":\"{{5.data.language}}\",\"caption\":{{13.json}},\"transcript\":{{12.json}},\"thumbnail\":\"data:image/jpeg;base64,{{base64(8.data)}}\",\"ai\":{{11.data.choices[1].message.content}}}",
     "headers": [
      {
       "key": "Content-Type",
