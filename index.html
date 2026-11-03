@@ -23,6 +23,8 @@
   --accent:#5cc9b3; --accent-soft:#163430; --blue:#7fa8f5; --blue-soft:#17233b; --warn:#e9a070; --warn-soft:#3a2617; --bad:#f08398; --bad-soft:#3b1a22; color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 body{background:var(--bg);color:var(--ink);font-family:var(--display);line-height:1.5;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
 .wrap{max-width:860px;margin:0 auto;display:grid;gap:22px}
@@ -48,7 +50,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 textarea.over{border-color:var(--bad)}
 .notice{border-radius:8px;padding:10px 14px;font-size:.9rem;background:var(--warn-soft);color:var(--warn)}
 .list{display:grid;gap:18px}
-.reel{background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.reel{scroll-margin-top:16px;background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .reel-head{display:flex;gap:12px;align-items:baseline;padding:12px 16px;border-bottom:1px solid var(--line)}
 .num{font:700 1.5rem var(--display);color:var(--accent);font-variant-numeric:tabular-nums;min-width:2ch}
 .reel-head .t{min-width:0;flex:1}
@@ -65,7 +67,7 @@ textarea.over{border-color:var(--bad)}
 .facts h3{margin:0 0 4px}
 .facts p{margin:0}
 .facts ul{margin:0;padding-left:1.1rem}
-.script{font-family:var(--body);font-size:1.05rem;line-height:1.7;white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px;max-width:70ch}
+.script{max-height:420px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;font-family:var(--body);font-size:1.05rem;line-height:1.7;white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px;max-width:70ch}
 details summary{cursor:pointer;font-size:.9rem;color:var(--accent)}
 .err{color:var(--bad);font-size:.9rem}
 .empty{border:1px dashed var(--line);border-radius:10px;padding:22px;color:var(--muted);display:grid;gap:8px}
@@ -143,7 +145,7 @@ body{padding:0;margin:0}
   <p class="side-foot">Your keys stay in this browser. They're sent only with your own requests and never saved on our server.</p>
 </nav>
 <main class="main">
-<div class="wrap">
+<div class="wrap" id="viewTranscribe">
   <header>
     <h1>Reel Script Desk</h1>
     <p>Paste Instagram reel links, separated by commas. Each reel is transcribed with Whisper large-v3, translated to English when it's Hindi, Kannada or any other language, and listed in the same order you pasted.</p>
@@ -165,19 +167,6 @@ body{padding:0;margin:0}
     <p class="hint">Three reels run at a time, about 30–60 seconds each, so 50 reels take roughly 15–20 minutes. Keep this page open until it finishes. Only public reels work. Usage is billed to your own Make, Groq and Apify accounts.</p>
   </section>
 
-  <section class="usage" id="usage" aria-labelledby="usageTitle">
-    <div class="usage-head">
-      <h2 id="usageTitle">Team usage</h2>
-      <div class="row"><span class="status" id="usageStamp"></span><button type="button" id="usageRefresh">Refresh</button></div>
-    </div>
-    <div class="totals" id="usageTotals"></div>
-    <div><span class="label">Apify scraper (monthly credit, live from Apify)</span></div>
-    <div class="ugrid" id="apifyCards"></div>
-    <div><span class="label">Groq (daily limits, read from Groq after each reel)</span></div>
-    <div class="ugrid" id="groqCards"></div>
-    <p class="note">Apify credit is your real account balance and resets each billing month. Groq's free tier resets every day, not monthly. Its numbers appear after the first reel each key processes. Token totals count reels run in this browser.</p>
-  </section>
-
   <section class="list" id="list">
     <div class="empty" id="empty">
       <strong>What you'll get for each reel</strong>
@@ -189,6 +178,26 @@ body{padding:0;margin:0}
       </ol>
     </div>
   </section>
+</div>
+
+<div class="wrap" id="viewUsage" hidden>
+  <header>
+    <h1>Usage</h1>
+    <p>Remaining capacity for every key your team added. Apify is your real monthly balance. Groq resets daily.</p>
+  </header>
+  <section class="usage" id="usage" aria-labelledby="usageTitle">
+    <div class="usage-head">
+      <h2 id="usageTitle">Team totals</h2>
+      <div class="row"><span class="status" id="usageStamp"></span><button type="button" id="usageRefresh">Refresh</button></div>
+    </div>
+    <div class="totals" id="usageTotals"></div>
+    <div><span class="label">Apify scraper (monthly credit, live from Apify)</span></div>
+    <div class="ugrid" id="apifyCards"></div>
+    <div><span class="label">Groq (daily limits, read from Groq after each reel)</span></div>
+    <div class="ugrid" id="groqCards"></div>
+    <p class="note">Apify credit is your real account balance and resets each billing month. Groq's free tier resets every day, not monthly. Its numbers appear after the first reel each key processes. Token totals count reels run in this browser.</p>
+  </section>
+
 </div>
 </main>
 </div>
@@ -438,7 +447,7 @@ function closeDrawer(){ drawer.classList.remove("open"); drawer.setAttribute("in
 function updateKeyUi(){ const ok = keysReady(); $("keyDot").className = "dot" + (ok ? " on" : ""); $("keysMissing").hidden = ok; $("go").disabled = !ok && false; }
 $("navKeys").addEventListener("click", () => drawer.classList.contains("open") ? closeDrawer() : openDrawer());
 $("openKeys2").addEventListener("click", openDrawer);
-$("navHome").addEventListener("click", () => { closeDrawer(); window.scrollTo({top:0, behavior:"smooth"}); });
+$("navHome").addEventListener("click", () => { closeDrawer(); showView("transcribe"); });
 $("kCancel").addEventListener("click", closeDrawer);
 scrim.addEventListener("click", closeDrawer);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer.classList.contains("open")) closeDrawer(); });
@@ -506,8 +515,8 @@ function renderUsage(){
       const reelsLeft = Math.floor(leftUsd / APIFY_USD_PER_REEL);
       apifyLeft += reelsLeft; apifyKnown = true;
       card.append(el("div", {class:"big " + level(frac)}, `≈ ${reelsLeft.toLocaleString()} reels left`), bar(frac),
-        el("p", {}, `$${spent.toFixed(2)} of $${live.limitUsd.toFixed(2)} used · ${a.reels || 0} reels this month here`),
-        live.cycleEnd ? el("p", {}, `Resets ${new Date(live.cycleEnd).toLocaleDateString()}`) : null);
+        el("p", {}, `$${spent.toFixed(2)} of $${live.limitUsd.toFixed(2)} used · ${a.reels || 0} reels this month here`));
+      if (live.cycleEnd) card.append(el("p", {}, `Resets ${new Date(live.cycleEnd).toLocaleDateString()}`));
     } else if (live && !live.ok){
       card.append(el("div", {class:"big out"}, live.error || "Unavailable"), el("p", {}, "Check this token in API keys."));
     } else {
@@ -557,7 +566,17 @@ async function refreshApify(){
   renderUsage();
 }
 $("usageRefresh").addEventListener("click", refreshApify);
-$("navUsage").addEventListener("click", () => { closeDrawer(); $("usage").scrollIntoView({behavior:"smooth", block:"start"}); });
+function showView(name){
+  $("viewTranscribe").hidden = name !== "transcribe"; $("viewUsage").hidden = name !== "usage";
+  $("navHome").toggleAttribute("aria-current", name === "transcribe"); $("navUsage").toggleAttribute("aria-current", name === "usage");
+  if ($("navHome").hasAttribute("aria-current")) $("navHome").setAttribute("aria-current","page");
+  if ($("navUsage").hasAttribute("aria-current")) $("navUsage").setAttribute("aria-current","page");
+  if (name === "usage") refreshApify();
+  try { history.replaceState(null, "", name === "usage" ? "#usage" : "#"); } catch {}
+  window.scrollTo({top:0});
+}
+$("navUsage").addEventListener("click", () => { closeDrawer(); showView("usage"); });
+if (location.hash === "#usage") showView("usage");
 renderUsage(); refreshApify();
 </script>
 </body>
