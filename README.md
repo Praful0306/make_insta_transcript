@@ -4,22 +4,24 @@ Paste Instagram reel links (comma separated, up to 30). For each reel you get th
 
 ## How it works
 
-Browser → `/api/transcribe` (Vercel function) → Make webhook scenario "Instagram Reel -> Groq Whisper Transcript":
-Apify Instagram Scraper → download video → Groq `whisper-large-v3` → Groq `openai/gpt-oss-120b` (translation, topic, editing notes) → JSON back.
+Every visitor brings their own keys. Open **API keys** in the left menu and add:
 
-API keys (Apify, Groq) stay inside Make. The Make webhook URL stays in a Vercel environment variable.
+- **Groq API key** (required): Whisper large-v3 transcription + `openai/gpt-oss-120b` for the English script, topic and editing notes.
+- **Apify API token**: finds the reel's video, cover and caption (Instagram Scraper).
+- **Make.com webhook URL** (optional): if set, each reel is sent to that Make scenario instead, with `{ url, groqKey, apifyKey }` in the body. The scenario must reply with the same JSON shape (see `api/transcribe.js`).
+
+Keys are saved only in the visitor's browser (localStorage), sent with that visitor's own requests, and never stored or logged by the server.
+
+Browser → `/api/transcribe` (Vercel function) → Apify → video download → Groq Whisper → Groq LLM → JSON.
 
 ## Deploy on Vercel
 
-1. vercel.com → Add New → Project → import this repo. No build settings needed.
-2. Settings → Environment Variables:
-   - `MAKE_WEBHOOK_URL` = your Make webhook URL (`https://hook.eu1.make.com/...`)
-   - `APP_PASSWORD` = any password (recommended, so strangers can't use your credits). Enter it once with the "App password" button; the browser remembers it.
-3. Deploy, then redeploy after changing env vars.
+1. vercel.com → Add New → Project → import this repo. No build settings and no environment variables needed.
+2. Deploy.
 
 ## Limits
 
 - 3 reels run at a time, about 30–60 s each.
-- Only public reels and video posts work.
+- Only public reels and video posts work; videos over 25 MB are rejected by Groq.
 - Editing notes are inferred from audio and caption, not from the video frames.
-- Costs: Apify (~$2–3 per 1,000 reels, $5 free monthly credit), Groq (free tier, then very cheap), Make (~10 operations per reel).
+- Costs go to each user's own accounts: Apify (~$2–3 per 1,000 reels, $5 free monthly credit) and Groq (free tier, then very cheap).

@@ -66,10 +66,54 @@ details summary{cursor:pointer;font-size:.9rem;color:var(--accent)}
 .empty ol{margin:0;padding-left:1.2rem}
 @media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
 input[type=password]{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--bg);color:var(--ink);font:inherit}
+
+/* App shell: fixed left menu + slide-out keys panel opening to its right */
+:root{--side:232px}
+body{padding:0;margin:0}
+.shell{display:grid;grid-template-columns:var(--side) 1fr;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;background:var(--paper);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:6px;
+  padding-block:22px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;z-index:30}
+.brand{font:700 1.15rem var(--display);letter-spacing:-.01em;margin:0 0 14px 6px}
+.nav{all:unset;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font:600 .95rem var(--display);color:var(--ink)}
+.nav:hover{background:var(--bg)} .nav[aria-current="page"],.nav[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent)}
+.nav:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--bad);margin-left:auto;flex:none} .dot.on{background:var(--accent)}
+.side-foot{margin-top:auto;font-size:.8rem;color:var(--muted);padding:0 6px}
+.main{min-width:0;padding-block:28px 64px;padding-left:24px;padding-right:max(16px,env(safe-area-inset-right,0px))}
+.drawer{position:fixed;top:0;bottom:0;left:var(--side);width:min(400px,calc(100vw - var(--side)));background:var(--paper);border-right:1px solid var(--line);
+  box-shadow:12px 0 32px rgba(0,0,0,.12);transform:translateX(calc(-100% - var(--side)));transition:transform .28s ease;z-index:20;display:flex;flex-direction:column}
+.drawer.open{transform:none}
+.drawer-in{padding:22px 20px;display:grid;gap:16px;overflow-y:auto}
+.drawer h2{margin:0;font-size:1.25rem}
+.field{display:grid;gap:6px}
+.field input{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);color:var(--ink);font:.85rem var(--mono);width:100%}
+.field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.field small{color:var(--muted);font-size:.8rem}
+.field small a{color:var(--accent)}
+.field .bad{color:var(--bad)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:15}
+.keys-missing{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:12px 16px}
+@media (max-width:760px){
+  :root{--side:0px}
+  .shell{grid-template-columns:1fr}
+  .side{position:sticky;top:env(safe-area-inset-top,0px);height:auto;flex-direction:row;align-items:center;flex-wrap:wrap;padding-block:10px;border-right:0;border-bottom:1px solid var(--line);padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .brand{margin:0 auto 0 0} .side-foot{display:none}
+  .main{padding-left:max(16px,env(safe-area-inset-left,0px))}
+  .drawer{left:0;width:100vw;transform:translateX(-100%);padding-top:env(safe-area-inset-top,0px)}
+}
+@media (prefers-reduced-motion:reduce){.drawer{transition:none}}
 </style>
 </head>
 <body>
 
+<div class="shell">
+<nav class="side" aria-label="Main menu">
+  <div class="brand">Reel Script Desk</div>
+  <button class="nav" type="button" aria-current="page" id="navHome">Transcribe</button>
+  <button class="nav" type="button" id="navKeys" aria-expanded="false" aria-controls="drawer">API keys <span class="dot" id="keyDot" aria-hidden="true"></span></button>
+  <p class="side-foot">Your keys stay in this browser. They're sent only with your own requests and never saved on our server.</p>
+</nav>
+<main class="main">
 <div class="wrap">
   <header>
     <h1>Reel Script Desk</h1>
@@ -83,13 +127,12 @@ input[type=password]{border:1px solid var(--line);border-radius:8px;padding:9px 
       <button class="primary" id="go">Generate scripts</button>
       <button id="stop" hidden>Stop after current reel</button>
       <button id="copyAll" hidden>Copy all scripts</button>
-      <button id="pw" type="button">App password</button>
       <span class="status" id="status"></span>
     </div>
-    <div class="row" id="pwBox" hidden><label class="label" for="pwInput">App password</label><input id="pwInput" type="password" autocomplete="current-password"><button id="pwSave" type="button">Save</button></div>
+    <div class="keys-missing" id="keysMissing" hidden><span>Add your Groq key and an Apify token (or Make webhook) to start.</span><button type="button" id="openKeys2">Add API keys</button></div>
     <div class="bar" id="barWrap" hidden><i id="bar"></i></div>
     <div class="notice" id="notice" hidden></div>
-    <p class="hint">Three reels run at a time, about 30–60 seconds each, so 30 reels take roughly 8–12 minutes. Keep this page open until it finishes. Only public reels work.</p>
+    <p class="hint">Three reels run at a time, about 30–60 seconds each, so 30 reels take roughly 8–12 minutes. Keep this page open until it finishes. Only public reels work. Usage is billed to your own Groq and Apify accounts.</p>
   </section>
 
   <section class="list" id="list">
@@ -104,7 +147,37 @@ input[type=password]{border:1px solid var(--line);border-radius:8px;padding:9px 
     </div>
   </section>
 </div>
-
+</main>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-label="API keys" aria-hidden="true" inert>
+  <div class="drawer-in">
+    <h2>API keys</h2>
+    <p class="hint">Transcripts run on your own accounts, so you pay only for what you use. Groq is required. Add either an Apify token (simplest) or your own Make webhook.</p>
+    <div class="field">
+      <label class="label" for="kGroq">Groq API key (required)</label>
+      <input id="kGroq" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_...">
+      <small>Get one free at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a></small>
+    </div>
+    <div class="field">
+      <label class="label" for="kApify">Apify API token</label>
+      <input id="kApify" type="password" autocomplete="off" spellcheck="false" placeholder="apify_api_...">
+      <small>Free $5 credit each month. <a href="https://console.apify.com/settings/integrations" target="_blank" rel="noopener">console.apify.com → Settings → API &amp; Integrations</a></small>
+    </div>
+    <div class="field">
+      <label class="label" for="kHook">Make.com webhook URL (optional)</label>
+      <input id="kHook" type="url" autocomplete="off" spellcheck="false" placeholder="https://hook.eu1.make.com/...">
+      <small>Leave empty to run directly with Apify + Groq. If set, each reel is sent to your Make scenario with your keys.</small>
+    </div>
+    <label class="row hint"><input type="checkbox" id="kShow"> Show keys</label>
+    <p class="err" id="kErr" hidden></p>
+    <div class="row">
+      <button class="primary" type="button" id="kSave">Save keys</button>
+      <button type="button" id="kCancel">Cancel</button>
+      <button type="button" id="kClear">Remove keys</button>
+    </div>
+  </div>
+</aside>
 <script>
 const CONCURRENCY = 3;
 const $ = id => document.getElementById(id);
@@ -193,8 +266,11 @@ async function copyText(text, btn){
   catch { const ta = el("textarea"); ta.value = text; document.body.append(ta); ta.select(); try { document.execCommand("copy"); } catch {} ta.remove(); }
 }
 
-function getPassword(){ try { return localStorage.getItem("appPassword") || ""; } catch { return ""; } }
-function setPassword(v){ try { localStorage.setItem("appPassword", v); } catch {} }
+const KEY_STORE = "reelScriptKeys";
+function getKeys(){ try { return JSON.parse(localStorage.getItem(KEY_STORE) || "{}"); } catch { return {}; } }
+function saveKeys(k){ try { localStorage.setItem(KEY_STORE, JSON.stringify(k)); return true; } catch { return false; } }
+let memKeys = getKeys();
+function keysReady(k = memKeys){ return !!(k.groq && (k.apify || k.hook)); }
 
 async function processOne(i, url, card){
   setChip(card, "run", "Transcribing…");
@@ -203,18 +279,19 @@ async function processOne(i, url, card){
   try {
     const res = await fetch("/api/transcribe", {
       method: "POST",
-      headers: {"Content-Type": "application/json", "x-app-password": getPassword()},
+      headers: {"Content-Type": "application/json", "x-groq-key": memKeys.groq || "", "x-apify-key": memKeys.apify || "", "x-make-webhook": memKeys.hook || ""},
       body: JSON.stringify({url})
     });
     const text = await res.text();
-    if (res.status === 401){ const e = new Error("Wrong or missing app password."); e.code = "auth"; throw e; }
-    let data; try { data = JSON.parse(text); } catch { throw new Error("Make didn't return a result. The reel may be private, deleted, or a photo post."); }
+    let data; try { data = JSON.parse(text); } catch { throw new Error("The server didn't return a result. Try this reel again."); }
+    if (res.status === 400 && /key|token|webhook/i.test(data.error || "")){ const e = new Error(data.error); e.code = "keys"; throw e; }
     if (!res.ok || !data.ok) throw new Error(data.error || "Make couldn't process this reel.");
     return data;
   } finally { clearInterval(tick); }
 }
 
 async function start(){
+  if (!keysReady()){ updateKeyUi(); openDrawer(); return; }
   const {urls, skipped} = parseUrls($("urls").value);
   const notice = $("notice");
   if (!urls.length){ notice.hidden = false; notice.textContent = "No Instagram reel links found. Paste links like https://www.instagram.com/reel/AbC123/ separated by commas."; return; }
@@ -238,7 +315,7 @@ async function start(){
         failed++; setChip(cards[i], "bad", "Failed");
         const body = cards[i].querySelector(".reel-body"); body.hidden = false; body.textContent = "";
         body.append(el("p", {class:"err"}, (e && e.message) || "Something went wrong."));
-        if (e && e.code === "auth"){ stopRequested = true; setPassword(""); }
+        if (e && e.code === "keys"){ stopRequested = true; openDrawer(); }
       }
       finished++;
       $("bar").style.width = `${Math.round((finished/urls.length)*100)}%`;
@@ -257,10 +334,34 @@ $("copyAll").addEventListener("click", e => {
   copyText(text, e.currentTarget);
 });
 
-$("pw").addEventListener("click", () => {
-  const box = $("pwBox"); box.hidden = !box.hidden; if (!box.hidden) $("pwInput").focus();
+const drawer = $("drawer"), scrim = $("scrim");
+function fillForm(){ $("kGroq").value = memKeys.groq || ""; $("kApify").value = memKeys.apify || ""; $("kHook").value = memKeys.hook || ""; $("kErr").hidden = true; }
+function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => $("kGroq").focus(), 50); }
+function closeDrawer(){ drawer.classList.remove("open"); drawer.setAttribute("inert",""); drawer.setAttribute("aria-hidden","true"); scrim.hidden = true; $("navKeys").setAttribute("aria-expanded","false"); $("navKeys").focus(); }
+function updateKeyUi(){ const ok = keysReady(); $("keyDot").className = "dot" + (ok ? " on" : ""); $("keysMissing").hidden = ok; $("go").disabled = !ok && false; }
+$("navKeys").addEventListener("click", () => drawer.classList.contains("open") ? closeDrawer() : openDrawer());
+$("openKeys2").addEventListener("click", openDrawer);
+$("navHome").addEventListener("click", () => { closeDrawer(); window.scrollTo({top:0, behavior:"smooth"}); });
+$("kCancel").addEventListener("click", closeDrawer);
+scrim.addEventListener("click", closeDrawer);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer.classList.contains("open")) closeDrawer(); });
+$("kShow").addEventListener("change", e => { ["kGroq","kApify"].forEach(id => $(id).type = e.target.checked ? "text" : "password"); });
+$("kSave").addEventListener("click", () => {
+  const k = { groq: $("kGroq").value.trim(), apify: $("kApify").value.trim(), hook: $("kHook").value.trim() };
+  const err = [];
+  if (!k.groq) err.push("Add your Groq API key.");
+  else if (!/^gsk_[A-Za-z0-9]{20,}$/.test(k.groq)) err.push("The Groq key should start with gsk_.");
+  if (!k.apify && !k.hook) err.push("Add an Apify token or a Make webhook URL.");
+  if (k.apify && !/^apify_api_[A-Za-z0-9]{20,}$/.test(k.apify)) err.push("The Apify token should start with apify_api_.");
+  if (k.hook && !/^https:\/\/hook\.[a-z0-9]+\.make\.com\/[A-Za-z0-9]+$/.test(k.hook)) err.push("The Make webhook should look like https://hook.eu1.make.com/abc123.");
+  if (err.length){ $("kErr").textContent = err.join(" "); $("kErr").hidden = false; return; }
+  memKeys = k;
+  const stored = saveKeys(k);
+  updateKeyUi(); closeDrawer();
+  $("status").textContent = stored ? "Keys saved in this browser." : "Keys saved for this visit only (your browser blocks storage).";
 });
-$("pwSave").addEventListener("click", () => { setPassword($("pwInput").value.trim()); $("pwInput").value = ""; $("pwBox").hidden = true; $("status").textContent = "Password saved in this browser."; });
+$("kClear").addEventListener("click", () => { memKeys = {}; try { localStorage.removeItem(KEY_STORE); } catch {} fillForm(); updateKeyUi(); $("status").textContent = "Keys removed from this browser."; });
+updateKeyUi();
 </script>
 </body>
 </html>
