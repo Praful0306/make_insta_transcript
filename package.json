@@ -1,0 +1,6 @@
+{
+  "name": "make-insta-transcript",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" }
+}
