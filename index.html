@@ -40,6 +40,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .status{font-family:var(--mono);font-size:.8rem;color:var(--muted);min-width:0}
 .bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden}
 .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
+.urls-head{justify-content:space-between}
+.counter{font:600 .8rem var(--mono);padding:4px 10px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-variant-numeric:tabular-nums}
+.counter.over{background:var(--bad-soft);color:var(--bad)} .counter.zero{background:var(--line);color:var(--muted)}
+.count-note{margin:0;font-size:.85rem;color:var(--muted)} .count-note.over{color:var(--bad);font-weight:600}
+textarea.over{border-color:var(--bad)}
 .notice{border-radius:8px;padding:10px 14px;font-size:.9rem;background:var(--warn-soft);color:var(--warn)}
 .list{display:grid;gap:18px}
 .reel{background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -125,7 +130,8 @@ body{padding:0;margin:0}
   </header>
 
   <section class="input-box">
-    <label class="label" for="urls">Reel links (comma separated, up to 30)</label>
+    <div class="row urls-head"><label class="label" for="urls">Reel links (comma separated, up to 50)</label><span class="counter" id="counter" aria-live="polite">0 / 50 links</span></div>
+    <p class="count-note" id="countNote" hidden></p>
     <textarea id="urls" placeholder="https://www.instagram.com/reel/AbC123/, https://www.instagram.com/reel/XyZ789/"></textarea>
     <div class="row">
       <button class="primary" id="go">Generate scripts</button>
@@ -136,7 +142,7 @@ body{padding:0;margin:0}
     <div class="keys-missing" id="keysMissing" hidden><span>Add your Make webhook, Groq key and Apify token to start.</span><button type="button" id="openKeys2">Add API keys</button></div>
     <div class="bar" id="barWrap" hidden><i id="bar"></i></div>
     <div class="notice" id="notice" hidden></div>
-    <p class="hint">Three reels run at a time, about 30–60 seconds each, so 30 reels take roughly 8–12 minutes. Keep this page open until it finishes. Only public reels work. Usage is billed to your own Make, Groq and Apify accounts.</p>
+    <p class="hint">Three reels run at a time, about 30–60 seconds each, so 50 reels take roughly 15–20 minutes. Keep this page open until it finishes. Only public reels work. Usage is billed to your own Make, Groq and Apify accounts.</p>
   </section>
 
   <section class="list" id="list">
@@ -200,6 +206,7 @@ body{padding:0;margin:0}
 </aside>
 <script>
 const CONCURRENCY = 3;
+const MAX_LINKS = 50;
 const $ = id => document.getElementById(id);
 let stopRequested = false, results = [];
 
@@ -334,7 +341,7 @@ async function start(){
   const {urls, skipped} = parseUrls($("urls").value);
   const notice = $("notice");
   if (!urls.length){ notice.hidden = false; notice.textContent = "No Instagram reel links found. Paste links like https://www.instagram.com/reel/AbC123/ separated by commas."; return; }
-  if (urls.length > 30){ notice.hidden = false; notice.textContent = `You pasted ${urls.length} links. The first 30 will be processed.`; urls.length = 30; }
+  if (urls.length > MAX_LINKS){ notice.hidden = false; notice.textContent = `You pasted ${urls.length} links. Only the first ${MAX_LINKS} will be processed; the other ${urls.length - MAX_LINKS} are ignored.`; urls.length = MAX_LINKS; }
   else if (skipped.length){ notice.hidden = false; notice.textContent = `Skipped ${skipped.length}: ${skipped.slice(0,5).join(", ")}${skipped.length > 5 ? "…" : ""}`; }
   else notice.hidden = true;
 
@@ -366,6 +373,21 @@ async function start(){
   $("go").disabled = false; $("stop").hidden = true; $("copyAll").hidden = done === 0;
 }
 
+function updateCounter(){
+  const {urls, skipped} = parseUrls($("urls").value);
+  const n = urls.length, c = $("counter"), note = $("countNote"), ta = $("urls");
+  c.textContent = `${n} / ${MAX_LINKS} links`;
+  c.className = "counter" + (n > MAX_LINKS ? " over" : n === 0 ? " zero" : "");
+  ta.classList.toggle("over", n > MAX_LINKS);
+  const parts = [];
+  if (n > MAX_LINKS) parts.push(`Too many links: ${n - MAX_LINKS} over the limit. Only the first ${MAX_LINKS} will be transcribed, so remove the extra ${n - MAX_LINKS}.`);
+  if (skipped.length) parts.push(`${skipped.length} skipped (not a reel link or a duplicate).`);
+  note.textContent = parts.join(" ");
+  note.className = "count-note" + (n > MAX_LINKS ? " over" : "");
+  note.hidden = !parts.length;
+}
+$("urls").addEventListener("input", updateCounter);
+updateCounter();
 $("go").addEventListener("click", start);
 $("stop").addEventListener("click", () => { stopRequested = true; $("stop").disabled = true; setTimeout(() => $("stop").disabled = false, 1000); });
 $("copyAll").addEventListener("click", e => {
