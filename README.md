@@ -6,8 +6,8 @@ Paste Instagram reel links (comma separated, up to 30). For each reel you get th
 
 Every visitor brings their own keys. Open **API keys** in the left menu and add:
 
-- **Groq API key** (required, passed to the user's scenario): Whisper large-v3 transcription + `openai/gpt-oss-120b` for the English script, topic and editing notes.
-- **Apify API token** (required, passed to the user's scenario): finds the reel's video, cover and caption (Instagram Scraper).
+- **Groq API keys** (1 required, up to 3 from teammates; reels are spread across them and a failed reel is retried with the next key; passed to the user's scenario): Whisper large-v3 transcription + `openai/gpt-oss-120b` for the English script, topic and editing notes.
+- **Apify API tokens** (1 required, up to 3; same rotation; passed to the user's scenario): finds the reel's video, cover and caption (Instagram Scraper).
 - **Make.com webhook URL** (required): each user imports `make-blueprint.json` into their own Make account, so all runs are billed to them. Steps are shown in the app under the field.
 
 Keys are saved only in the visitor's browser (localStorage), sent with that visitor's own requests, and never stored or logged by the server.

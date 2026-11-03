@@ -86,7 +86,7 @@ body{padding:0;margin:0}
 .drawer-in{padding:22px 20px;display:grid;gap:16px;overflow-y:auto}
 .drawer h2{margin:0;font-size:1.25rem}
 .field{display:grid;gap:6px}
-.field input{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);color:var(--ink);font:.85rem var(--mono);width:100%}
+.field input{margin-bottom:2px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);color:var(--ink);font:.85rem var(--mono);width:100%}
 .field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .field small{color:var(--muted);font-size:.8rem}
 .field small a{color:var(--accent)}
@@ -175,15 +175,20 @@ body{padding:0;margin:0}
       </details>
     </div>
     <div class="field">
-      <label class="label" for="kGroq">Groq API key</label>
-      <input id="kGroq" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_...">
+      <span class="label">Groq API keys (1 required, up to 3)</span>
+      <input id="kGroq1" class="kGroq" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_..." aria-label="Groq API key 1">
+      <input id="kGroq2" class="kGroq" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_..." aria-label="Groq API key 2">
+      <input id="kGroq3" class="kGroq" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_..." aria-label="Groq API key 3">
       <small>Free at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. Click <b>Create API Key</b> and copy it.</small>
     </div>
     <div class="field">
-      <label class="label" for="kApify">Apify API token</label>
-      <input id="kApify" type="password" autocomplete="off" spellcheck="false" placeholder="apify_api_...">
+      <span class="label">Apify API tokens (1 required, up to 3)</span>
+      <input id="kApify1" class="kApify" type="password" autocomplete="off" spellcheck="false" placeholder="apify_api_..." aria-label="Apify API token 1">
+      <input id="kApify2" class="kApify" type="password" autocomplete="off" spellcheck="false" placeholder="apify_api_..." aria-label="Apify API token 2">
+      <input id="kApify3" class="kApify" type="password" autocomplete="off" spellcheck="false" placeholder="apify_api_..." aria-label="Apify API token 3">
       <small>Free $5 credit each month. <a href="https://console.apify.com/settings/integrations" target="_blank" rel="noopener">console.apify.com → Settings → API &amp; Integrations</a>, then copy the Personal API token.</small>
     </div>
+    <p class="hint">Team project? Each teammate can add the key from their own account. Reels are spread across the keys, and if a reel fails, it's retried with the next key. When the keys run out, remove them and the next teammate adds theirs.</p>
     <label class="row hint"><input type="checkbox" id="kShow"> Show keys</label>
     <p class="err" id="kErr" hidden></p>
     <div class="row">
@@ -285,16 +290,20 @@ const KEY_STORE = "reelScriptKeys";
 function getKeys(){ try { return JSON.parse(localStorage.getItem(KEY_STORE) || "{}"); } catch { return {}; } }
 function saveKeys(k){ try { localStorage.setItem(KEY_STORE, JSON.stringify(k)); return true; } catch { return false; } }
 let memKeys = getKeys();
-function keysReady(k = memKeys){ return !!(k.groq && k.apify && k.hook); }
+function normKeys(k){ k = k || {}; const arr = v => (Array.isArray(v) ? v : (v ? [v] : [])).filter(Boolean); return {hook: k.hook || "", groq: arr(k.groq), apify: arr(k.apify)}; }
+memKeys = normKeys(memKeys);
+function keysReady(k = memKeys){ return !!(k.hook && k.groq.length && k.apify.length); }
+function pickKeys(i, attempt){ const g = memKeys.groq, a = memKeys.apify; return {groq: g[(i + attempt) % g.length], apify: a[(i + attempt) % a.length]}; }
 
-async function processOne(i, url, card){
-  setChip(card, "run", "Transcribing…");
+async function processOnce(i, url, card, attempt){
   const started = Date.now();
-  const tick = setInterval(() => setChip(card, "run", `Transcribing… ${Math.round((Date.now() - started)/1000)} s`), 1000);
+  const tag = attempt ? ` (key set ${attempt + 1})` : "";
+  setChip(card, "run", "Transcribing…" + tag);
+  const tick = setInterval(() => setChip(card, "run", `Transcribing… ${Math.round((Date.now() - started)/1000)} s${tag}`), 1000);
   try {
     const res = await fetch("/api/transcribe", {
       method: "POST",
-      headers: {"Content-Type": "application/json", "x-groq-key": memKeys.groq || "", "x-apify-key": memKeys.apify || "", "x-make-webhook": memKeys.hook || ""},
+      headers: (() => { const k = pickKeys(i, attempt); return {"Content-Type": "application/json", "x-groq-key": k.groq, "x-apify-key": k.apify, "x-make-webhook": memKeys.hook}; })(),
       body: JSON.stringify({url})
     });
     const text = await res.text();
@@ -303,6 +312,21 @@ async function processOne(i, url, card){
     if (!res.ok || !data.ok) throw new Error(data.error || "Make couldn't process this reel.");
     return data;
   } finally { clearInterval(tick); }
+}
+
+async function processOne(i, url, card){
+  const tries = Math.max(memKeys.groq.length, memKeys.apify.length);
+  let last;
+  for (let attempt = 0; attempt < tries; attempt++){
+    try { return await processOnce(i, url, card, attempt); }
+    catch (e){
+      last = e;
+      if (e && e.code === "keys") throw e;
+      if (/doesn't look like|webhook URL wasn't found/i.test((e && e.message) || "")) throw e;
+    }
+  }
+  if (tries > 1 && last) last.message += ` (tried ${tries} key sets)`;
+  throw last;
 }
 
 async function start(){
@@ -350,7 +374,7 @@ $("copyAll").addEventListener("click", e => {
 });
 
 const drawer = $("drawer"), scrim = $("scrim");
-function fillForm(){ $("kGroq").value = memKeys.groq || ""; $("kApify").value = memKeys.apify || ""; $("kHook").value = memKeys.hook || ""; $("kErr").hidden = true; }
+function fillForm(){ [1,2,3].forEach(n => { $("kGroq"+n).value = memKeys.groq[n-1] || ""; $("kApify"+n).value = memKeys.apify[n-1] || ""; }); $("kHook").value = memKeys.hook || ""; $("kErr").hidden = true; }
 function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => $("kHook").focus(), 50); $("hookSteps").open = !memKeys.hook; }
 function closeDrawer(){ drawer.classList.remove("open"); drawer.setAttribute("inert",""); drawer.setAttribute("aria-hidden","true"); scrim.hidden = true; $("navKeys").setAttribute("aria-expanded","false"); $("navKeys").focus(); }
 function updateKeyUi(){ const ok = keysReady(); $("keyDot").className = "dot" + (ok ? " on" : ""); $("keysMissing").hidden = ok; $("go").disabled = !ok && false; }
@@ -360,23 +384,24 @@ $("navHome").addEventListener("click", () => { closeDrawer(); window.scrollTo({t
 $("kCancel").addEventListener("click", closeDrawer);
 scrim.addEventListener("click", closeDrawer);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer.classList.contains("open")) closeDrawer(); });
-$("kShow").addEventListener("change", e => { ["kGroq","kApify"].forEach(id => $(id).type = e.target.checked ? "text" : "password"); });
+$("kShow").addEventListener("change", e => { document.querySelectorAll(".kGroq,.kApify").forEach(x => x.type = e.target.checked ? "text" : "password"); });
 $("kSave").addEventListener("click", () => {
-  const k = { groq: $("kGroq").value.trim(), apify: $("kApify").value.trim(), hook: $("kHook").value.trim() };
+  const vals = cls => [...document.querySelectorAll("." + cls)].map(x => x.value.trim()).filter(Boolean);
+  const k = { hook: $("kHook").value.trim(), groq: [...new Set(vals("kGroq"))], apify: [...new Set(vals("kApify"))] };
   const err = [];
-  if (!k.groq) err.push("Add your Groq API key.");
-  else if (!/^gsk_[A-Za-z0-9]{20,}$/.test(k.groq)) err.push("The Groq key should start with gsk_.");
   if (!k.hook) err.push("Add your Make.com webhook URL.");
-  if (!k.apify) err.push("Add your Apify API token.");
-  if (k.apify && !/^apify_api_[A-Za-z0-9]{20,}$/.test(k.apify)) err.push("The Apify token should start with apify_api_.");
-  if (k.hook && !/^https:\/\/hook\.[a-z0-9]+\.make\.com\/[A-Za-z0-9]+$/.test(k.hook)) err.push("The Make webhook should look like https://hook.eu1.make.com/abc123.");
+  else if (!/^https:\/\/hook\.[a-z0-9]+\.make\.com\/[A-Za-z0-9]+$/.test(k.hook)) err.push("The Make webhook should look like https://hook.eu1.make.com/abc123.");
+  if (!k.groq.length) err.push("Add at least one Groq API key.");
+  else if (k.groq.some(x => !/^gsk_[A-Za-z0-9]{20,}$/.test(x))) err.push("Groq keys should start with gsk_.");
+  if (!k.apify.length) err.push("Add at least one Apify API token.");
+  else if (k.apify.some(x => !/^apify_api_[A-Za-z0-9]{20,}$/.test(x))) err.push("Apify tokens should start with apify_api_.");
   if (err.length){ $("kErr").textContent = err.join(" "); $("kErr").hidden = false; return; }
   memKeys = k;
   const stored = saveKeys(k);
   updateKeyUi(); closeDrawer();
   $("status").textContent = stored ? "Keys saved in this browser." : "Keys saved for this visit only (your browser blocks storage).";
 });
-$("kClear").addEventListener("click", () => { memKeys = {}; try { localStorage.removeItem(KEY_STORE); } catch {} fillForm(); updateKeyUi(); $("status").textContent = "Keys removed from this browser."; });
+$("kClear").addEventListener("click", () => { memKeys = normKeys({}); try { localStorage.removeItem(KEY_STORE); } catch {} fillForm(); updateKeyUi(); $("status").textContent = "Keys removed from this browser."; });
 updateKeyUi();
 </script>
 </body>
