@@ -149,6 +149,7 @@ select{border:1px solid var(--line);border-radius:8px;padding:9px 12px;backgroun
 .plat{font:600 .7rem var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:6px;background:var(--line);color:var(--muted)}
 .traders{display:grid;gap:12px}
 .traders h2{margin:0;font-size:1.1rem}
+.tgroup{margin:18px 0 8px}.tgroup h3{margin:0;font-size:1.05rem}.tgroup p{margin:2px 0 0}
 .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
 .tcard{all:unset;box-sizing:border-box;cursor:pointer;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:6px;min-width:0}
 .tcard:hover{border-color:var(--accent)} .tcard:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -286,12 +287,12 @@ button.bad{color:var(--bad);border-color:var(--bad)}
     </div>
     <div class="keys-missing" id="kbMissing" hidden><span id="kbMissingText">Add your Neon database URL, Groq key and Apify token to start.</span><button type="button" id="kbOpenKeys">Add API keys</button></div>
     <div class="notice" id="kbNotice" hidden></div>
-    <p class="hint">Instagram reels go through your Make webhook. YouTube videos need captions on YouTube (most have auto captions). Long videos are read in 3-minute parts, so a 1-hour video takes about 15–25 minutes on free Groq keys. Keep this page open until it finishes. If it stops, paste the same links again and it carries on where it left off.</p>
+    <p class="hint">Instagram reels go through your Make webhook. YouTube videos need captions on YouTube (most have auto captions). Long videos are cut into 3-minute parts and shared across all your Groq keys at the same time, one part per key. Then every key rests a little over 2 minutes before the next round so none runs out. A 1-hour video takes about 25–40 minutes with 3 keys, and less with more keys. Keep this page open until it finishes. If it stops, paste the same links again and it carries on where it left off.</p>
   </section>
   <section class="jobs" id="kbJobs" aria-live="polite"></section>
   <section class="traders">
     <div class="usage-head"><h2>Traders</h2><div class="row"><span class="status" id="tStamp"></span><button type="button" id="tRefresh">Refresh</button></div></div>
-    <div class="tgrid" id="traderList"></div>
+    <div id="traderList"></div>
   </section>
 </div>
 

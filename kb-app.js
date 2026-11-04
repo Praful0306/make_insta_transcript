@@ -107,7 +107,7 @@ async function getYoutube(item, say){
    Groq's response headers and are used when present). A 429 puts that key to sleep for the time Groq
    asks, and the part moves to another key. A per-day limit parks the key until it resets. */
 const TPM = 8000;                  // free-tier tokens/min per key (gpt-oss-120b), used only when headers are missing
-const GAP_MIN = 60000, GAP_MAX = 120000; // rest between two parts on the same key: 1 to 2 minutes
+const GAP_MIN = 125000, GAP_MAX = 240000; // rest after a whole part on the same key: a little over 2 minutes (longer after a 429)
 const CALL_FLOOR = 5000, CALL_CAP = 120000; // min / max wait between two calls on the same key
 const pool = {keys: [], turn: 0};
 const nowMs = () => Date.now();
@@ -162,7 +162,7 @@ function rateLimited(k, d){
 function releaseKey(k, ok){
   k.busy = false;
   if (ok) k.gap = Math.max(GAP_MIN, k.gap * .85);
-  k.free = Math.max(k.free, nowMs() + k.gap);                           // 1 to 2 minutes of rest before the next part
+  k.free = Math.max(k.free, nowMs() + k.gap);                           // over 2 minutes of rest before the next part (every key rests together, round after round)
   if (k.daily && k.blocked <= nowMs()) k.daily = false;
 }
 // Runs all calls for one part on one key. Moves to another key only when this one is rate-limited or rejected.
@@ -352,13 +352,30 @@ async function loadTraders(){
   $("tStamp").textContent = `${traders.length} trader${traders.length === 1 ? "" : "s"}`;
   list.textContent = "";
   if (!traders.length) list.append(el("p", {class: "hint"}, "No traders yet. Paste links above and they'll appear here."));
-  for (const t of traders){
-    const acc = (t.accounts || []).map(a => a.platform === "instagram" ? "Instagram @" + a.handle : "YouTube " + (a.display_name || a.handle)).join(" · ");
-    const card = el("button", {class: "tcard", type: "button"}, el("strong", {}, t.name), el("span", {class: "acc"}, acc || "No accounts"),
+  // Two clear groups so nobody mixes up where a trader's knowledge came from.
+  const groups = [["youtube", "YouTube channels", "Knowledge from videos on their YouTube channel"], ["instagram", "Instagram accounts", "Knowledge from their Instagram reels"]];
+  const card = (t, platform) => {
+    const acc = (t.accounts || []).filter(a => a.platform === platform).map(a => platform === "instagram" ? "@" + a.handle : (a.display_name || a.handle)).join(" · ");
+    const c = el("button", {class: "tcard", type: "button"}, el("strong", {}, t.name), el("span", {class: "acc"}, (platform === "instagram" ? "Instagram " : "YouTube ") + acc),
       el("div", {class: "stats"}, el("span", {class: "stat"}, `${t.sources} sources`), el("span", {class: "stat ok"}, `${t.rules - t.flagged} verified rules`),
         t.flagged ? el("span", {class: "stat warn"}, `${t.flagged} to review`) : null));
-    card.addEventListener("click", () => openTrader(t.id));
-    list.append(card);
+    c.addEventListener("click", () => openTrader(t.id));
+    return c;
+  };
+  const placed = new Set();
+  for (const [platform, title, sub] of groups){
+    const mine = traders.filter(t => (t.accounts || []).some(a => a.platform === platform));
+    if (!mine.length) continue;
+    mine.forEach(t => placed.add(t.id));
+    list.append(el("div", {class: "tgroup"}, el("h3", {}, `${title} (${mine.length})`), el("p", {class: "hint"}, sub)));
+    const grid = el("div", {class: "tgrid"}); mine.forEach(t => grid.append(card(t, platform))); list.append(grid);
+  }
+  const rest = traders.filter(t => !placed.has(t.id));
+  if (rest.length){
+    list.append(el("div", {class: "tgroup"}, el("h3", {}, `Other (${rest.length})`)));
+    const grid = el("div", {class: "tgrid"});
+    rest.forEach(t => { const c = el("button", {class: "tcard", type: "button"}, el("strong", {}, t.name), el("span", {class: "acc"}, "No account linked"), el("div", {class: "stats"}, el("span", {class: "stat"}, `${t.sources} sources`), el("span", {class: "stat ok"}, `${t.rules - t.flagged} verified rules`))); c.addEventListener("click", () => openTrader(t.id)); grid.append(c); });
+    list.append(grid);
   }
   fillFileUnder();
 }
