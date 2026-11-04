@@ -107,7 +107,7 @@ async function getYoutube(item, say){
    Groq's response headers and are used when present). A 429 puts that key to sleep for the time Groq
    asks, and the part moves to another key. A per-day limit parks the key until it resets. */
 const TPM = 8000;                  // free-tier tokens/min per key (gpt-oss-120b), used only when headers are missing
-const GAP_MIN = 60000, GAP_MAX = 120000; // rest between two parts on the same key: 1 to 2 minutes
+const GAP_MIN = 125000, GAP_MAX = 240000; // rest after a whole part on the same key: a little over 2 minutes (longer after a 429)
 const CALL_FLOOR = 5000, CALL_CAP = 120000; // min / max wait between two calls on the same key
 const pool = {keys: [], turn: 0};
 const nowMs = () => Date.now();
@@ -162,7 +162,7 @@ function rateLimited(k, d){
 function releaseKey(k, ok){
   k.busy = false;
   if (ok) k.gap = Math.max(GAP_MIN, k.gap * .85);
-  k.free = Math.max(k.free, nowMs() + k.gap);                           // 1 to 2 minutes of rest before the next part
+  k.free = Math.max(k.free, nowMs() + k.gap);                           // over 2 minutes of rest before the next part (every key rests together, round after round)
   if (k.daily && k.blocked <= nowMs()) k.daily = false;
 }
 // Runs all calls for one part on one key. Moves to another key only when this one is rate-limited or rejected.
