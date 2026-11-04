@@ -108,6 +108,7 @@ Environment variables on Vercel:
 | --- | --- |
 | `LIBRARY_DATABASE_URL` | Neon database that holds the library rules, customers, entitlements and usage. Use a separate project from users' own databases. |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN` | From your Firebase web app. Enable Google and Email/Password sign-in, add your domain under authorized domains. |
+| `FIREBASE_AUTH_SAME_ORIGIN` | `1` makes Google sign-in run through your own site (needs the redirect URI `https://YOUR-SITE/__/auth/handler` on the Google web client and your site in Firebase Authorized domains). Fixes popups that close by themselves in browsers that block third-party storage. |
 | `OWNER_EMAILS` | Comma-separated emails that always get free access after signing in with a verified email (you). |
 | `LIB_PRICE_INR` | Price shown on the page (display only). |
 | `CHECKOUT_OPEN` | `1` once Razorpay is connected. |
