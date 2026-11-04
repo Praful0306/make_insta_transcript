@@ -91,7 +91,8 @@ export function neonUrlFrom(req) {
 }
 
 // Returns q(text, params) -> rows. Creates the tables on first use.
-export async function db(req) {
+// readOnly: never runs CREATE statements, so a read-only Neon role works (used by the public API).
+export async function db(req, { readOnly = false } = {}) {
   const url = neonUrlFrom(req);
   const sql = neon(url);
   const q = async (text, params = []) => {
@@ -100,11 +101,12 @@ export async function db(req) {
       const msg = String((e && e.message) || e);
       if (/password authentication|authentication failed|role .* does not exist/i.test(msg)) throw new HttpError(400, "Neon rejected the database URL (wrong password or user). Copy it again from Neon → Connect.", { code: "keys" });
       if (/fetch failed|ENOTFOUND|getaddrinfo|endpoint .* not found|could not find/i.test(msg)) throw new HttpError(400, "Couldn't reach your Neon database. Check the URL in API keys, and that the project still exists.", { code: "keys" });
+      if (readOnly && /relation "(traders|accounts|sources|chunks|rules)" does not exist/i.test(msg)) throw new HttpError(404, "No knowledge base found in this database yet. Add a video in the website first, using this same Neon URL.", { code: "empty" });
       if (/exceeded|quota|size limit/i.test(msg)) throw new HttpError(507, "Your Neon database is full or over its free quota. Check your Neon dashboard.");
       throw new HttpError(500, "Database error: " + msg.slice(0, 200));
     }
   };
-  if (!ready.has(url)) {
+  if (!readOnly && !ready.has(url)) {
     for (const s of SCHEMA) await q(s);
     ready.add(url);
   }

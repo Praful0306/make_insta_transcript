@@ -1,7 +1,16 @@
 {
   "functions": {
-    "api/transcribe.js": { "maxDuration": 300 },
-    "api/youtube.js": { "maxDuration": 300 },
-    "api/kb.js": { "maxDuration": 300 }
+    "api/transcribe.js": {
+      "maxDuration": 300
+    },
+    "api/youtube.js": {
+      "maxDuration": 300
+    },
+    "api/kb.js": {
+      "maxDuration": 300
+    },
+    "api/v1/*.js": {
+      "maxDuration": 60
+    }
   }
 }

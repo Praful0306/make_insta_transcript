@@ -539,5 +539,6 @@ kbCounter();
 const h = location.hash;
 if (h === "#usage") showView("usage");
 else if (h === "#kb") showView("kb");
+else if (h === "#api") showView("api");
 else if (/^#trader-\d+$/.test(h)) openTrader(+h.slice(8));
 })();
