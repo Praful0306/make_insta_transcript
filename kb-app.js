@@ -147,7 +147,21 @@ async function acquireKey(say){
 }
 const durMs = txt => { const m = /^(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m(?!s))?(?:(\d+(?:\.\d+)?)s)?(?:(\d+(?:\.\d+)?)ms)?$/.exec(String(txt || "")); return m && (m[1] || m[2] || m[3] || m[4]) ? ((+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0)) * 1000 + (+m[4] || 0) : null; };
 // After a call: decide when this key may be used again, from Groq's own numbers when we have them.
+// Keeps the Usage page live: tokens and calls per key, plus the limits Groq reports on every reply.
+function recordGroqCall(key, u){
+  try {
+    const id = keyId(key), g = usage.groq[id] = usage.groq[id] || {};
+    if (g.month !== month()){ g.month = month(); g.reels = 0; g.tokens = 0; g.audioSec = 0; }
+    if (g.day !== today()){ g.day = today(); g.dayReels = 0; g.dayTokens = 0; g.limits = null; g.dayCalls = 0; }
+    const tok = Number(u && u.total_tokens) || 0, L = (u && u.limits) || {};
+    g.tokens += tok; g.dayTokens += tok; g.dayCalls = (g.dayCalls || 0) + 1; g.monthCalls = (g.monthCalls || 0) + 1;
+    if (L.limitReq != null || L.limitTok != null) g.live = {at: Date.now(), limitReq: L.limitReq, remainReq: L.remainReq, resetReq: L.resetReq, limitTok: L.limitTok, remainTok: L.remainTok, resetTok: L.resetTok};
+    saveUsage(); renderUsage();
+  } catch {}
+}
+window.recordGroqCall = recordGroqCall;
 function afterCall(k, u){
+  recordGroqCall(k.key, u);
   const reserved = (u && (u.reserved || u.total_tokens)) || TPM, L = (u && u.limits) || {};
   let wait = Math.min(1, reserved / TPM) * 60000;                      // fallback: the tokens this call used up of one minute
   if (L.remainTok != null){ const reset = durMs(L.resetTok); wait = L.remainTok >= reserved * 1.1 ? CALL_FLOOR : (reset != null ? reset + 1000 : wait); }
