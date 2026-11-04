@@ -250,7 +250,7 @@ button.bad{color:var(--bad);border-color:var(--bad)}
 <div class="wrap" id="viewUsage" hidden>
   <header>
     <h1>Usage</h1>
-    <p>Remaining capacity for every key your team added. Apify is your real monthly balance. Groq resets daily.</p>
+    <p>Remaining capacity for every key your team added. Apify is your real monthly balance. Groq numbers update after every call, so they are live while a video is running.</p>
   </header>
   <section class="usage" id="usage" aria-labelledby="usageTitle">
     <div class="usage-head">
@@ -260,9 +260,9 @@ button.bad{color:var(--bad);border-color:var(--bad)}
     <div class="totals" id="usageTotals"></div>
     <div><span class="label">Apify scraper (monthly credit, live from Apify)</span></div>
     <div class="ugrid" id="apifyCards"></div>
-    <div><span class="label">Groq (daily limits, read from Groq after each reel)</span></div>
+    <div><span class="label">Groq (live: read from Groq after every call)</span></div>
     <div class="ugrid" id="groqCards"></div>
-    <p class="note">Apify credit is your real account balance and resets each billing month. Groq's free tier resets every day, not monthly. Its numbers appear after the first reel each key processes. Token totals count reels run in this browser.</p>
+    <p class="note">Apify credit is your real account balance and resets each billing month. Groq's free tier resets every day, not monthly. Its numbers appear after each key's first call and update after every call. Token totals count what this browser has run.</p>
   </section>
 
 </div>
@@ -736,6 +736,7 @@ function renderUsage(){
   memKeys.groq.forEach((key, n) => {
     const id = keyId(key), g = usage.groq[id] || {};
     const fresh = g.day === today() && g.limits;
+    const lv = g.day === today() && g.live;
     const card = el("div", {class:"ucard"}, el("div", {class:"k"}, el("span", {}, `Groq key ${n+1}`), el("span", {}, "…" + id)));
     if (g.month === month()){ tokensMonth += g.tokens || 0; reelsMonth += g.reels || 0; }
     if (fresh){
@@ -746,17 +747,28 @@ function renderUsage(){
       groqLeft += left; groqKnown = true;
       card.append(el("div", {class:"big " + level(frac)}, `${left.toLocaleString()} reels left today`), bar(frac),
         el("p", {}, `${g.dayReels || 0} reels and ${(g.dayTokens || 0).toLocaleString()} tokens used today`));
+    } else if (lv && (lv.limitReq || lv.limitTok)){
+      // live numbers Groq sent back on this key's latest call
+      const reqFrac = lv.limitReq ? lv.remainReq / lv.limitReq : 1, tokFrac = lv.limitTok ? lv.remainTok / lv.limitTok : 1;
+      const frac = Math.min(reqFrac, tokFrac);
+      if (lv.remainReq != null) { groqLeft += lv.remainReq; groqKnown = true; }
+      card.append(el("div", {class:"big " + level(frac)}, lv.remainReq != null ? `${Math.round(lv.remainReq).toLocaleString()} calls left today` : "Live"), bar(frac));
+      if (lv.limitReq) card.append(el("p", {}, `Requests: ${Math.round(lv.remainReq).toLocaleString()} of ${Math.round(lv.limitReq).toLocaleString()} left today` + (lv.resetReq ? ` · resets in ${lv.resetReq}` : "")));
+      if (lv.limitTok) card.append(el("p", {}, `Tokens: ${Math.round(lv.remainTok).toLocaleString()} of ${Math.round(lv.limitTok).toLocaleString()} left this minute` + (lv.resetTok ? ` · refills in ${lv.resetTok}` : "")));
+      card.append(el("p", {}, `Today: ${g.dayCalls || 0} calls · ${(g.dayTokens || 0).toLocaleString()} tokens · updated ${new Date(lv.at).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"})}`));
+    } else if (g.day === today() && (g.dayTokens || g.dayCalls)){
+      card.append(el("div", {class:"big"}, `${(g.dayTokens || 0).toLocaleString()} tokens today`), el("p", {}, `${g.dayCalls || 0} calls today. Limits appear after Groq's next reply.`));
     } else {
-      card.append(el("div", {class:"big"}, "Not used yet today"), el("p", {}, "Limits show after this key's first reel today."));
+      card.append(el("div", {class:"big"}, "Not used yet today"), el("p", {}, "Live numbers appear as soon as this key makes its first call."));
     }
     const avg = g.reels ? Math.round((g.tokens || 0) / g.reels) : null;
-    card.append(el("p", {}, `This month: ${g.month === month() ? (g.reels || 0) : 0} reels · ${g.month === month() ? (g.tokens || 0).toLocaleString() : 0} tokens${avg ? ` · ≈ ${avg.toLocaleString()} per reel` : ""}`));
+    card.append(el("p", {}, `This month: ${g.month === month() ? (g.reels || 0) : 0} reels · ${g.month === month() ? (g.monthCalls || 0) : 0} calls · ${g.month === month() ? (g.tokens || 0).toLocaleString() : 0} tokens${avg ? ` · ≈ ${avg.toLocaleString()} per reel` : ""}`));
     gc.append(card);
   });
   const p = (cls, main, sub) => el("span", {class:"pill " + cls}, main, el("small", {}, sub));
   tot.append(apifyKnown ? p(apifyLeft < 20 ? (apifyLeft < 1 ? "out" : "low") : "", `≈ ${apifyLeft.toLocaleString()} reels`, "Apify left this month") : p("", "Apify", "checking…"));
-  tot.append(groqKnown ? p(groqLeft < 20 ? (groqLeft < 1 ? "out" : "low") : "", `${groqLeft.toLocaleString()} reels`, "Groq left today") : p("", "Groq", "after first reel"));
-  tot.append(p("", `${reelsMonth.toLocaleString()} reels`, `${tokensMonth.toLocaleString()} tokens this month`));
+  tot.append(groqKnown ? p(groqLeft < 20 ? (groqLeft < 1 ? "out" : "low") : "", `${Math.round(groqLeft).toLocaleString()}`, "Groq calls left today") : p("", "Groq", "after first call"));
+  tot.append(p("", `${tokensMonth.toLocaleString()} tokens`, `${reelsMonth.toLocaleString()} reels this month`));
 }
 
 async function refreshApify(){
