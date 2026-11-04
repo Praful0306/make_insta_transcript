@@ -108,6 +108,7 @@ Environment variables on Vercel:
 | --- | --- |
 | `LIBRARY_DATABASE_URL` | Neon database that holds the library rules, customers, entitlements and usage. Use a separate project from users' own databases. |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN` | From your Firebase web app. Enable Google and Email/Password sign-in, add your domain under authorized domains. |
+| `OWNER_EMAILS` | Comma-separated emails that always get free access after signing in with a verified email (you). |
 | `LIB_PRICE_INR` | Price shown on the page (display only). |
 | `CHECKOUT_OPEN` | `1` once Razorpay is connected. |
 | `LIB_REQ_PER_DAY` (100), `LIB_RULES_PER_DAY` (500), `LIB_REQ_PER_MIN` (15), `LIB_RULES_PER_CALL` (200), `LIB_MAX_KEYS` (3) | Limits per customer. Day resets 00:00 UTC (05:30 IST). |

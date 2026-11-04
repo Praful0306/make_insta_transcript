@@ -85,6 +85,11 @@ export async function identify(req, q, { tokenOnly = false } = {}) {
   // a grant made for this email before they first signed in
   const g = (await q(`DELETE FROM lib_pending_grants WHERE email=$1 RETURNING plan, period_end, source, provider_ref`, [t.email]))[0];
   if (g) await setEntitlement(q, t.uid, { plan: g.plan, periodEnd: g.period_end, source: g.source, ref: g.provider_ref });
+  // Owner: a verified email listed in OWNER_EMAILS always has access (set only in Vercel, never in the page).
+  const owners = (process.env.OWNER_EMAILS || "").toLowerCase().split(",").map(x => x.trim()).filter(Boolean);
+  if (owners.includes(t.email)) await q(`INSERT INTO lib_entitlements(uid, plan, status, period_end, source) VALUES($1,$2,'active', now() + interval '400 days','owner')
+      ON CONFLICT (uid) DO UPDATE SET status='active', period_end=now() + interval '400 days', source='owner', updated_at=now()
+      WHERE lib_entitlements.period_end < now() + interval '30 days'`, [t.uid, PLAN]);
   return { uid: t.uid, email: t.email, via: "token" };
 }
 
