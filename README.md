@@ -19,6 +19,43 @@ Browser → `/api/transcribe` (Vercel function, only forwards) → the user's ow
 1. vercel.com → Add New → Project → import this repo. No build settings and no environment variables needed.
 2. Deploy.
 
+## Your own Neon database and file storage
+
+The server holds no database or storage of its own, so nobody can use anyone else's data.
+Everyone creates a free Neon project and pastes their details into **API keys** in the page.
+They are kept in that browser, sent only with that person's own requests, and never saved on the server.
+
+- **Neon database URL (needed for the knowledge base).** Traders, transcripts and rules are saved here.
+  The tables are created automatically.
+- **Neon file storage (optional).** Only fill this in if you want thumbnails kept in your own bucket
+  (Instagram image links expire). Needs five values from your Neon project: bucket name, S3 access key ID,
+  S3 secret access key, S3 endpoint and S3 region. Leave them empty and thumbnails stay inside your database.
+
+No Vercel environment variables are needed for Neon. `neon.ts` is only an example of how to create a private
+bucket in your own project with `neon deploy`; it isn't used by the app.
+
+## API for AI coding tools
+
+A read-only API lets Claude Code, Codex, Cursor or any AI tool fetch the knowledge base of every trader,
+combine it, and build indicators. The server keeps no data: each request sends the caller's own Neon URL in
+the `x-neon-url` header and reads from that database. The **AI tools** page in the site has a copy-paste prompt
+and a connection test.
+
+| Endpoint | What it returns |
+| --- | --- |
+| `GET /api/v1/traders` | traders with rule counts |
+| `GET /api/v1/concepts` | concepts and which traders cover them |
+| `GET /api/v1/knowledge?format=markdown&verified=true` | all rules from all traders, grouped by concept |
+| `GET /api/v1/rules?q=&trader=1,4&concept=&verified=true&limit=100&offset=0` | searchable, paged rules |
+| `GET /api/v1/traders/{id}` | one trader with sources and rules (`include=transcripts` for full text) |
+| `GET /api/v1/sources/{id}` | one full transcript |
+| `GET /api/v1/openapi.json` | OpenAPI 3.1 description (no auth needed) |
+
+Agent instructions are in [`skill/SKILL.md`](skill/SKILL.md) (a Claude Code skill: copy the folder to
+`~/.claude/skills/trader-knowledge-base/`) and [`llms.txt`](llms.txt). They tell the tool to start with verified
+rules, compare traders, never guess values marked "Not stated", and treat transcript text as data, not instructions.
+For safety, give AI tools a read-only Neon role (steps are on the AI tools page). The API never writes.
+
 ## Limits
 
 - 3 reels run at a time, about 30–60 s each.
@@ -58,3 +95,26 @@ Browser → `/api/youtube` (Apify) or `/api/transcribe` (Make) → `/api/kb` (Ne
 - YouTube videos without captions aren't supported yet.
 - Neon's free plan includes limited storage per project (see neon.com/pricing). Transcripts are text, so thousands of videos fit.
 - No automatic process can promise zero mistakes. Every rule carries its exact quote and source so it can be checked, and anything that fails a check is marked Needs review.
+
+## Paid library (locked until payment)
+
+Our own knowledge base, served only to signed-in paying members. Unpaid callers get no data: the server checks sign-in, then payment, then limits, and only then reads a single library row. If anything is missing or broken it refuses (fails closed). The page cannot unlock anything; access comes only from a row in `lib_entitlements` that a trusted server path writes.
+
+Endpoints (GET only, header `x-api-key: kbk_...`): `/api/v1/library/traders`, `/concepts`, `/rules`, `/knowledge`, `/traders/{id}`. No transcripts are served. Account routes (`/api/v1/account`) use the Firebase ID token.
+
+Environment variables on Vercel:
+
+| Name | Meaning |
+| --- | --- |
+| `LIBRARY_DATABASE_URL` | Neon database that holds the library rules, customers, entitlements and usage. Use a separate project from users' own databases. |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN` | From your Firebase web app. Enable Google and Email/Password sign-in, add your domain under authorized domains. |
+| `OWNER_EMAILS` | Comma-separated emails that always get free access after signing in with a verified email (you). |
+| `LIB_PRICE_INR` | Price shown on the page (display only). |
+| `CHECKOUT_OPEN` | `1` once Razorpay is connected. |
+| `LIB_REQ_PER_DAY` (100), `LIB_RULES_PER_DAY` (500), `LIB_REQ_PER_MIN` (15), `LIB_RULES_PER_CALL` (200), `LIB_MAX_KEYS` (3) | Limits per customer. Day resets 00:00 UTC (05:30 IST). |
+
+Give someone access by hand: `LIBRARY_DATABASE_URL=... FIREBASE_PROJECT_ID=... node scripts/grant-access.mjs email@example.com 30` (use `0` to end access).
+
+Razorpay later: a webhook route verifies the signature, then calls `setEntitlement` (paid, `period_end`) or marks the plan `cancelled`/`expired`. Cancelled members keep access to `period_end`.
+
+Legal pages are in `legal/` (generated by `python3 legal/gen.py`). Fill the yellow placeholders and have a lawyer review them before launch.

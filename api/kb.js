@@ -1,7 +1,9 @@
 // Knowledge base API. One endpoint, POST { action, ... }.
-// Headers: x-neon-url (always), x-groq-key (for action "step").
-// Nothing is stored on this server: all data goes to the user's own Neon database.
+// Headers: x-neon-url (always), x-groq-key (for action "step"), and optionally the user's own
+// Neon file storage (x-neon-s3-*) for thumbnails.
+// Nothing is stored on this server: all data goes to the user's own Neon project.
 import { db, header, readBody, send, HttpError } from "./_db.js";
+import { storageFrom, storeThumbnail, resolveThumbnail } from "./_storage.js";
 import { translate, extract, verify, applyFix, quoteFound, tsToSec } from "./_extract.js";
 
 const CHUNK_SEC = 180;     // YouTube: about 3 minutes of speech per part (fits Groq free-tier limits)
@@ -134,7 +136,7 @@ const ACTIONS = {
     return { traders };
   },
 
-  async trader(q, b) {
+  async trader(q, b, req) {
     const id = int(b.id);
     const trader = (await q(`SELECT id, name, created_at FROM traders WHERE id=$1`, [id]))[0];
     if (!trader) throw new HttpError(404, "Trader not found.");
@@ -145,12 +147,14 @@ const ACTIONS = {
         (SELECT count(*) FROM chunks c WHERE c.source_id=s.id AND c.status='done')::int AS parts_done,
         (SELECT string_agg(DISTINCT c.error, ' ') FROM chunks c WHERE c.source_id=s.id AND c.error IS NOT NULL) AS notes
       FROM sources s WHERE s.trader_id=$1 ORDER BY s.created_at`, [id]);
+    const store = storageFrom(req);
+    for (const s of sources) s.thumbnail = await resolveThumbnail(store, s.thumbnail);
     const rules = await q(`SELECT r.* FROM rules r JOIN sources s ON s.id=r.source_id WHERE r.trader_id=$1 ORDER BY s.created_at, r.chunk_id, r.ord, r.id`, [id]);
     return { trader, accounts, sources, rules };
   },
 
   // Save one transcribed source and split it into parts for extraction.
-  async ingest(q, b) {
+  async ingest(q, b, req) {
     const platform = b.platform === "youtube" ? "youtube" : b.platform === "instagram" ? "instagram" : null;
     if (!platform) throw new HttpError(400, "Unknown platform.");
     const url = clip(b.url, 500);
@@ -179,9 +183,11 @@ const ACTIONS = {
     if (!parts.length) throw new HttpError(422, "No speech was found in this video, so there is nothing to extract.");
 
     const who = await findOrCreateTrader(q, { platform, handle: b.handle, displayName: b.displayName, accountUrl: b.accountUrl, traderId: b.traderId });
+    // If the user added their own Neon file storage, keep the image in their bucket instead of a large/expiring inline value.
+    const thumbnail = await storeThumbnail(storageFrom(req), clip(b.thumbnail, 400000));
     const src = (await q(`INSERT INTO sources(trader_id, platform, url, title, caption, language, duration_sec, thumbnail, transcript, english, status)
                           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'processing') RETURNING id`,
-      [who.traderId, platform, url, clip(b.title, 300), clip(b.caption, 5000), language, +b.duration || null, clip(b.thumbnail, 400000), transcript, english]))[0];
+      [who.traderId, platform, url, clip(b.title, 300), clip(b.caption, 5000), language, +b.duration || null, thumbnail, transcript, english]))[0];
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i];
       await q(`INSERT INTO chunks(source_id, idx, start_sec, end_sec, original, english, status) VALUES($1,$2,$3,$4,$5,$6,$7)`,

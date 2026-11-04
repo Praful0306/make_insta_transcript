@@ -99,6 +99,9 @@ body{padding:0;margin:0}
 .field small{color:var(--muted);font-size:.8rem}
 .field small a{color:var(--accent)}
 .field .bad{color:var(--bad)}
+#viewApi a{color:var(--accent)}
+.code{margin:0;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);font:.78rem/1.5 var(--mono);white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+.api-grid{display:grid;gap:10px}.api-grid dt{font:.78rem var(--mono);color:var(--accent)}.api-grid dd{margin:0 0 6px;font-size:.88rem;color:var(--muted)}
 .steps{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);font-size:.85rem}
 .steps ol{margin:8px 0;padding-left:1.2rem;display:grid;gap:6px}
 .steps p{margin:6px 0 0;color:var(--muted)}
@@ -201,6 +204,8 @@ button.bad{color:var(--bad);border-color:var(--bad)}
   <div class="brand">Reel Script Desk</div>
   <button class="nav" type="button" aria-current="page" id="navHome">Transcribe</button>
   <button class="nav" type="button" id="navKb">Knowledge base</button>
+  <button class="nav" type="button" id="navApi">AI tools</button>
+  <button class="nav" type="button" id="navLib">Library <span aria-hidden="true">&#128274;</span></button>
   <button class="nav" type="button" id="navUsage">Usage</button>
   <button class="nav" type="button" id="navKeys" aria-expanded="false" aria-controls="drawer">API keys <span class="dot" id="keyDot" aria-hidden="true"></span></button>
   <p class="side-foot">Your keys stay in this browser. They're sent only with your own requests and never saved on our server.</p>
@@ -276,6 +281,7 @@ button.bad{color:var(--bad);border-color:var(--bad)}
     <div class="row">
       <button class="primary" id="kbGo">Add to knowledge base</button>
       <button id="kbStop" hidden>Stop after current step</button>
+      <button id="kbRetryAll" hidden>Retry all failed</button>
       <span class="status" id="kbStatus"></span>
     </div>
     <div class="keys-missing" id="kbMissing" hidden><span id="kbMissingText">Add your Neon database URL, Groq key and Apify token to start.</span><button type="button" id="kbOpenKeys">Add API keys</button></div>
@@ -289,6 +295,76 @@ button.bad{color:var(--bad);border-color:var(--bad)}
   </section>
 </div>
 
+<div class="wrap" id="viewApi" hidden>
+  <header>
+    <h1>AI tools</h1>
+    <p>Let Claude Code, Codex, Cursor or any AI coding tool read your knowledge base and build indicators from the rules of every trader you saved. It is a read-only API on your own Neon database. Nobody else can see your data.</p>
+  </header>
+  <section class="usage" aria-labelledby="apiStart">
+    <h2 id="apiStart">Get started</h2>
+    <ol class="steps-list" style="margin:0;padding-left:1.2rem;display:grid;gap:8px;font-size:.9rem">
+      <li>Save your Neon database URL in <b>API keys</b> and add some videos to the knowledge base.</li>
+      <li>Put the same URL in an environment variable on the computer where your AI tool runs, as <code>KB_NEON_URL</code>. The tool sends it with each request. It never leaves your machine except to this API.</li>
+      <li>Copy the prompt below into your AI tool, and say what you want built.</li>
+    </ol>
+    <div class="row"><button type="button" id="apiTest">Test my connection</button><span class="status" id="apiTestOut" role="status"></span></div>
+    <span class="label">Prompt for your AI tool</span>
+    <pre class="code" id="apiPrompt"></pre>
+    <div class="row"><button type="button" class="primary" id="apiCopyPrompt">Copy prompt</button><a href="/skill/SKILL.md" target="_blank" rel="noopener">Agent skill (SKILL.md)</a><a href="/api/v1/openapi.json" target="_blank" rel="noopener">OpenAPI</a><a href="/llms.txt" target="_blank" rel="noopener">llms.txt</a></div>
+  </section>
+  <section class="usage" aria-labelledby="apiRef">
+    <h2 id="apiRef">Endpoints</h2>
+    <p class="hint">All are <code>GET</code>. Send your Neon URL in the <code>x-neon-url</code> header. Base: <code id="apiBase"></code></p>
+    <dl class="api-grid">
+      <dt>/traders</dt><dd>Every trader with rule counts.</dd>
+      <dt>/concepts</dt><dd>Concepts (order block, fair value gap, ...) and which traders cover each.</dd>
+      <dt>/knowledge?format=markdown&amp;verified=true</dt><dd>Everything combined and grouped by concept, as one document. Best starting point.</dd>
+      <dt>/rules?q=stop loss&amp;trader=1,4&amp;concept=...&amp;limit=100</dt><dd>Search single rules across traders.</dd>
+      <dt>/traders/{id}</dt><dd>One trader with sources and rules. Add <code>include=transcripts</code> for the full text.</dd>
+      <dt>/sources/{id}</dt><dd>The full transcript of one video.</dd>
+    </dl>
+    <span class="label">Example</span>
+    <pre class="code" id="apiCurl"></pre>
+    <details class="steps">
+      <summary>Safer: give AI tools a read-only database login</summary>
+      <p>Your Neon URL can change and delete data. For AI tools, create a separate role that can only read. In your Neon project, open <b>Roles</b>, create a role (for example <code>kb_reader</code>) and copy its connection string. Then run this once in the Neon <b>SQL Editor</b>, and use the reader's URL as <code>KB_NEON_URL</code>:</p>
+      <pre class="code">GRANT USAGE ON SCHEMA public TO kb_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO kb_reader;</pre>
+    </details>
+    <p class="note">Rules come only from each trader's own words, with the exact quote and link. "Not stated" means the trader did not say it, so your AI tool should ask rather than guess. This is educational material, not financial advice.</p>
+  </section>
+</div>
+<div class="wrap" id="viewLib" hidden>
+  <header>
+    <h1>Library</h1>
+    <p>Our own knowledge base, built from many traders' public videos. It opens only for paying members. Until you pay, no data is sent to you or to any AI tool. You can still build your own knowledge base for free with your own keys.</p>
+  </header>
+  <section class="usage" id="libState" aria-live="polite"><p class="hint">Loading…</p></section>
+  <section class="usage" id="libLogin" hidden aria-labelledby="libLoginT">
+    <h2 id="libLoginT">Sign in</h2>
+    <label class="label" for="libEmail">Email</label><input id="libEmail" type="email" autocomplete="email">
+    <label class="label" for="libPass">Password (at least 8 characters)</label><input id="libPass" type="password" autocomplete="current-password">
+    <label class="hint"><input type="checkbox" id="libAgree"> I agree to the <a href="/legal/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="/legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</label>
+    <div class="row"><button type="button" class="primary" id="libSignIn">Sign in</button><button type="button" id="libSignUp">Create account</button><button type="button" id="libGoogle">Continue with Google</button><button type="button" id="libReset">Forgot password</button></div>
+    <span class="status" id="libMsg" role="status"></span>
+  </section>
+  <section class="usage" id="libAccount" hidden aria-labelledby="libAccT">
+    <h2 id="libAccT">Your plan</h2>
+    <div id="libPlan"></div>
+    <div id="libPaid" hidden>
+      <h2>API keys for AI tools</h2>
+      <p class="hint">Send the key in the <code>x-api-key</code> header to <code id="libBase"></code>. A key is shown once. Keep it secret.</p>
+      <div class="row"><input id="libKeyLabel" placeholder="Label, e.g. Claude Code" maxlength="60"><button type="button" class="primary" id="libNewKey">Create key</button></div>
+      <pre class="code" id="libNewKeyOut" hidden></pre>
+      <div id="libKeys"></div>
+      <span class="label">Prompt for your AI tool</span>
+      <pre class="code" id="libPrompt"></pre>
+    </div>
+    <div class="row"><button type="button" id="libExport">Download my data</button><button type="button" id="libDelete">Delete my account</button><button type="button" id="libOut">Sign out</button></div>
+    <span class="status" id="libAccMsg" role="status"></span>
+  </section>
+</div>
+
 <div class="wrap" id="viewTrader" hidden></div>
 </main>
 </div>
@@ -296,7 +372,7 @@ button.bad{color:var(--bad);border-color:var(--bad)}
 <aside class="drawer" id="drawer" aria-label="API keys" aria-hidden="true" inert>
   <div class="drawer-in">
     <h2>API keys</h2>
-    <p class="hint">Everything runs on your own accounts, so you only pay for what you use. Transcribing needs the Make webhook, a Groq key and an Apify token. The knowledge base also needs your Neon database URL.</p>
+    <p class="hint">Everything runs on your own accounts, so you only pay for what you use. Transcribing needs the Make webhook, a Groq key and an Apify token. The knowledge base saves to your own free Neon database (URL below), so your data stays in your account.</p>
     <div class="field">
       <label class="label" for="kHook">Make.com webhook URL</label>
       <input id="kHook" type="url" autocomplete="off" spellcheck="false" placeholder="https://hook.eu1.make.com/...">
@@ -326,6 +402,28 @@ button.bad{color:var(--bad);border-color:var(--bad)}
           <li>Paste it above and click <b>Save keys</b>. The tables are created automatically the first time you add a video.</li>
         </ol>
         <p>Anyone with this URL can read and change your knowledge base, so share it only with your teammates. Everyone who pastes the same URL works on the same knowledge base.</p>
+      </details>
+    </div>
+    <div class="field">
+      <label class="label">Neon file storage (optional)</label>
+      <details class="steps" id="s3Steps">
+        <summary>Store thumbnails in your own Neon bucket (skip this if you don't need it)</summary>
+        <p>Without this, thumbnails are saved inside your database. That works fine, but Instagram image links expire, so a bucket keeps them visible later. All five values come from your own Neon project.</p>
+        <ol>
+          <li>In your Neon project, open <b>Storage</b> (Object Storage) and create a bucket. Keep it <b>private</b>. Type its name below.</li>
+          <li>Create an access key for the bucket. Neon shows the <b>access key ID</b> and <b>secret access key</b> once, so copy both.</li>
+          <li>Copy the <b>endpoint</b> (starts with <code>https://</code> and ends with <code>neon.tech</code>) and the <b>region</b> (for example <code>us-east-2</code>).</li>
+        </ol>
+        <label class="label" for="kS3Bucket">Bucket name</label>
+        <input id="kS3Bucket" type="text" autocomplete="off" spellcheck="false" placeholder="assets">
+        <label class="label" for="kS3Key">Neon S3 access key ID</label>
+        <input id="kS3Key" type="text" autocomplete="off" spellcheck="false">
+        <label class="label" for="kS3Secret">Neon S3 secret access key</label>
+        <input id="kS3Secret" class="kS3secret" type="password" autocomplete="off" spellcheck="false">
+        <label class="label" for="kS3Endpoint">Neon S3 endpoint</label>
+        <input id="kS3Endpoint" type="text" autocomplete="off" spellcheck="false" placeholder="https://br-....storage.us-east-2.aws.neon.tech">
+        <label class="label" for="kS3Region">Neon S3 region</label>
+        <input id="kS3Region" type="text" autocomplete="off" spellcheck="false" placeholder="us-east-2">
       </details>
     </div>
     <div class="field">
@@ -445,7 +543,7 @@ const KEY_STORE = "reelScriptKeys";
 function getKeys(){ try { return JSON.parse(localStorage.getItem(KEY_STORE) || "{}"); } catch { return {}; } }
 function saveKeys(k){ try { localStorage.setItem(KEY_STORE, JSON.stringify(k)); return true; } catch { return false; } }
 let memKeys = getKeys();
-function normKeys(k){ k = k || {}; const arr = v => (Array.isArray(v) ? v : (v ? [v] : [])).filter(Boolean); return {hook: k.hook || "", neon: k.neon || "", groq: arr(k.groq), apify: arr(k.apify)}; }
+function normKeys(k){ k = k || {}; const arr = v => (Array.isArray(v) ? v : (v ? [v] : [])).filter(Boolean); return {hook: k.hook || "", neon: k.neon || "", s3: {key: (k.s3 && k.s3.key) || "", secret: (k.s3 && k.s3.secret) || "", endpoint: (k.s3 && k.s3.endpoint) || "", region: (k.s3 && k.s3.region) || "", bucket: (k.s3 && k.s3.bucket) || ""}, groq: arr(k.groq), apify: arr(k.apify)}; }
 memKeys = normKeys(memKeys);
 function keysReady(k = memKeys){ return !!(k.hook && k.groq.length && k.apify.length); }
 function pickKeys(i, attempt){ const g = memKeys.groq, a = memKeys.apify; const gi = (i + attempt) % g.length, ai = (i + attempt) % a.length; return {groq: g[gi], apify: a[ai], gi, ai}; }
@@ -547,7 +645,7 @@ $("copyAll").addEventListener("click", e => {
 });
 
 const drawer = $("drawer"), scrim = $("scrim");
-function fillForm(){ [1,2,3].forEach(n => { $("kGroq"+n).value = memKeys.groq[n-1] || ""; $("kApify"+n).value = memKeys.apify[n-1] || ""; }); $("kHook").value = memKeys.hook || ""; $("kNeon").value = memKeys.neon || ""; $("kErr").hidden = true; }
+function fillForm(){ [1,2,3].forEach(n => { $("kGroq"+n).value = memKeys.groq[n-1] || ""; $("kApify"+n).value = memKeys.apify[n-1] || ""; }); $("kHook").value = memKeys.hook || ""; $("kNeon").value = memKeys.neon || ""; ["Key","Secret","Endpoint","Region","Bucket"].forEach(n => $("kS3"+n).value = memKeys.s3[n.toLowerCase()] || ""); $("s3Steps").open = !!(memKeys.s3.key || memKeys.s3.endpoint); $("kErr").hidden = true; }
 function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => { if (!drawer.contains(document.activeElement)) $("kHook").focus(); }, 50); $("hookSteps").open = !memKeys.hook; $("neonSteps").open = !memKeys.neon && !!memKeys.hook; }
 function closeDrawer(){ drawer.classList.remove("open"); drawer.setAttribute("inert",""); drawer.setAttribute("aria-hidden","true"); scrim.hidden = true; $("navKeys").setAttribute("aria-expanded","false"); $("navKeys").focus(); }
 function updateKeyUi(){ const ok = keysReady(); $("keyDot").className = "dot" + (ok ? " on" : ""); $("keysMissing").hidden = ok; if (typeof kbKeyUi === "function") kbKeyUi(); }
@@ -557,14 +655,17 @@ $("navHome").addEventListener("click", () => { closeDrawer(); showView("transcri
 $("kCancel").addEventListener("click", closeDrawer);
 scrim.addEventListener("click", closeDrawer);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer.classList.contains("open")) closeDrawer(); });
-$("kShow").addEventListener("change", e => { document.querySelectorAll(".kGroq,.kApify,.kNeon").forEach(x => x.type = e.target.checked ? "text" : "password"); });
+$("kShow").addEventListener("change", e => { document.querySelectorAll(".kGroq,.kApify,.kNeon,.kS3secret").forEach(x => x.type = e.target.checked ? "text" : "password"); });
 $("kSave").addEventListener("click", () => {
   const vals = cls => [...document.querySelectorAll("." + cls)].map(x => x.value.trim()).filter(Boolean);
-  const k = { hook: $("kHook").value.trim(), neon: $("kNeon").value.trim(), groq: [...new Set(vals("kGroq"))], apify: [...new Set(vals("kApify"))] };
+  const k = { hook: $("kHook").value.trim(), neon: $("kNeon").value.trim(), s3: {key: $("kS3Key").value.trim(), secret: $("kS3Secret").value.trim(), endpoint: $("kS3Endpoint").value.trim().replace(/\/+$/, ""), region: $("kS3Region").value.trim(), bucket: $("kS3Bucket").value.trim()}, groq: [...new Set(vals("kGroq"))], apify: [...new Set(vals("kApify"))] };
   const err = [];
   if (!k.hook) err.push("Add your Make.com webhook URL.");
   else if (!/^https:\/\/hook\.[a-z0-9]+\.make\.com\/[A-Za-z0-9]+$/.test(k.hook)) err.push("The Make webhook should look like https://hook.eu1.make.com/abc123.");
   if (k.neon && !/^postgres(ql)?:\/\/[^\s@]+@[^\s/]+\.neon\.(tech|build)(:\d+)?\/\S*$/.test(k.neon)) err.push("The Neon URL should look like postgresql://user:password@ep-....neon.tech/neondb?sslmode=require.");
+  const s3n = [k.s3.key, k.s3.secret, k.s3.endpoint, k.s3.region].filter(Boolean).length;
+  if (s3n && s3n < 4) err.push("Neon file storage needs the access key, secret key, endpoint and region. Fill in all four, or clear them.");
+  else if (k.s3.endpoint && !/^https:\/\/[^\s/]+\.neon\.(tech|build)$/.test(k.s3.endpoint)) err.push("The storage endpoint should look like https://br-....storage.us-east-2.aws.neon.tech.");
   if (!k.groq.length) err.push("Add at least one Groq API key.");
   else if (k.groq.some(x => !/^gsk_[A-Za-z0-9]{20,}$/.test(x))) err.push("Groq keys should start with gsk_.");
   if (!k.apify.length) err.push("Add at least one Apify API token.");
@@ -673,20 +774,55 @@ async function refreshApify(){
   renderUsage();
 }
 $("usageRefresh").addEventListener("click", refreshApify);
-const VIEWS = {transcribe:["viewTranscribe","navHome"], usage:["viewUsage","navUsage"], kb:["viewKb","navKb"], trader:["viewTrader","navKb"]};
+const VIEWS = {transcribe:["viewTranscribe","navHome"], usage:["viewUsage","navUsage"], api:["viewApi","navApi"], lib:["viewLib","navLib"], kb:["viewKb","navKb"], trader:["viewTrader","navKb"]};
 function showView(name, hash){
   for (const [k, [v]] of Object.entries(VIEWS)) $(v).hidden = k !== name;
-  ["navHome","navUsage","navKb"].forEach(n => $(n).removeAttribute("aria-current"));
+  ["navHome","navUsage","navKb","navApi","navLib"].forEach(n => $(n).removeAttribute("aria-current"));
   $(VIEWS[name][1]).setAttribute("aria-current", "page");
   if (name === "usage") refreshApify();
+  if (name === "api") renderApiView();
+  if (name === "lib" && window.libOpen) window.libOpen();
   if (name === "kb") loadTraders();
   try { history.replaceState(null, "", hash || (name === "transcribe" ? location.pathname : "#" + name)); } catch {}
   window.scrollTo({top:0});
 }
 $("navUsage").addEventListener("click", () => { closeDrawer(); showView("usage"); });
 $("navKb").addEventListener("click", () => { closeDrawer(); showView("kb"); });
+$("navApi").addEventListener("click", () => { closeDrawer(); showView("api"); });
+$("navLib").addEventListener("click", () => { closeDrawer(); showView("lib"); });
+
+/* ---------- AI tools: API instructions ---------- */
+function renderApiView(){
+  const base = location.origin + "/api/v1";
+  $("apiBase").textContent = base;
+  $("apiPrompt").textContent =
+`I keep a trading knowledge base (rules extracted from traders' Instagram reels and YouTube videos) in my own Neon database. Use its read-only API to build: <say what you want, e.g. a TradingView Pine Script indicator that combines the order block and fair value gap rules from all traders>.
+
+1. Read and follow ${location.origin}/skill/SKILL.md
+2. API base: ${base} (OpenAPI: ${base}/openapi.json)
+3. Send my Neon connection string with every request in the header x-neon-url. It is in the environment variable KB_NEON_URL. Never print it or save it in a file.
+4. Start with verified=true rules, compare the traders, and ask me when they disagree. Do not guess anything marked "Not stated".`;
+  $("apiCurl").textContent = `curl -s -H "x-neon-url: $KB_NEON_URL" "${base}/knowledge?format=markdown&verified=true"`;
+}
+$("apiCopyPrompt").addEventListener("click", async () => {
+  const t = $("apiPrompt").textContent, b = $("apiCopyPrompt");
+  try { await navigator.clipboard.writeText(t); b.textContent = "Copied"; }
+  catch { const r = document.createRange(); r.selectNodeContents($("apiPrompt")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); b.textContent = "Selected, press Ctrl+C"; }
+  setTimeout(() => b.textContent = "Copy prompt", 2000);
+});
+$("apiTest").addEventListener("click", async () => {
+  const out = $("apiTestOut");
+  if (!memKeys.neon){ out.textContent = "Add your Neon database URL in API keys first."; return; }
+  out.textContent = "Checking…";
+  try {
+    const r = await fetch("/api/v1/traders", {headers: {"x-neon-url": memKeys.neon}}), d = await r.json();
+    out.textContent = r.ok ? `Works: ${d.traders.length} traders, ${d.traders.reduce((n, t) => n + t.rules, 0)} rules (${d.traders.reduce((n, t) => n + t.verified_rules, 0)} verified).` : (d.error || "Something went wrong.");
+  } catch { out.textContent = "Network error. Check your connection."; }
+});
 renderUsage(); refreshApify();
 </script>
 <script src="/kb-app.js"></script>
+<script src="/library-app.js"></script>
+<footer class="wrap" style="font-size:.8rem;padding-bottom:32px"><a href="/legal/privacy.html">Privacy</a> · <a href="/legal/terms.html">Terms</a> · <a href="/legal/refunds.html">Cancellation &amp; refunds</a> · <a href="/legal/data.html">Your data</a> · <a href="/legal/contact.html">Contact</a><br>Educational material from the traders own public videos. Not financial advice. No promise of profit.</footer>
 </body>
 </html>

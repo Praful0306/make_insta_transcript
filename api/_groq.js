@@ -6,6 +6,20 @@ const FREE_TPM = 8000; // Groq free tier tokens-per-minute for gpt-oss-120b; inp
 
 const estTokens = s => Math.ceil(String(s).length / 3.2);
 
+// Rate-limit headers Groq sends on every reply. The page uses them to space calls per key.
+// Names follow Groq's OpenAI-compatible headers; any that are missing simply come back null.
+const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+const limitsFrom = h => ({
+  limitReq: num(h.get("x-ratelimit-limit-requests")), remainReq: num(h.get("x-ratelimit-remaining-requests")), resetReq: h.get("x-ratelimit-reset-requests"),
+  limitTok: num(h.get("x-ratelimit-limit-tokens")), remainTok: num(h.get("x-ratelimit-remaining-tokens")), resetTok: h.get("x-ratelimit-reset-tokens"),
+});
+// "Please try again in 7m12.5s" / "1h2m3s" / "850ms" -> seconds
+export function secondsFrom(text) {
+  const m = /(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m(?!s))?(?:(\d+(?:\.\d+)?)s)?(?:(\d+(?:\.\d+)?)ms)?/.exec(String(text || ""));
+  if (!m || !(m[1] || m[2] || m[3] || m[4])) return null;
+  return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) + (+m[4] || 0) / 1000;
+}
+
 export async function chatJson(key, system, user, { effort = "medium", maxOut = 6000 } = {}) {
   if (!key) throw new HttpError(400, "Add your Groq API key in API keys.", { code: "keys" });
   const input = estTokens(system) + estTokens(user) + 50;
@@ -25,8 +39,13 @@ export async function chatJson(key, system, user, { effort = "medium", maxOut = 
   const text = await r.text();
   if (r.status === 401 || r.status === 403) throw new HttpError(400, "Groq rejected this API key. Check it in API keys.", { code: "groqkey" });
   if (r.status === 429) {
-    const ra = parseFloat(r.headers.get("retry-after")) || 20;
-    throw new HttpError(429, "Groq rate limit reached on this key.", { retryAfter: Math.min(120, Math.ceil(ra)) });
+    let msg = ""; try { msg = JSON.parse(text).error.message || ""; } catch {}
+    const tryIn = secondsFrom((/try again in\s+([0-9a-z.]+)/i.exec(msg) || [])[1]);
+    const ra = parseFloat(r.headers.get("retry-after")) || tryIn || 20;
+    // A per-day limit (tokens or requests per day) won't clear in a minute: tell the page so it stops using this key for now.
+    const daily = /per day|\((TPD|RPD|ASD)\)/i.test(msg) || ra > 600;
+    throw new HttpError(429, daily ? "This Groq key reached its daily limit." : "Groq rate limit reached on this key.",
+      { retryAfter: Math.min(86400, Math.ceil(ra)), daily, limits: limitsFrom(r.headers) });
   }
   if (r.status === 413) throw new HttpError(413, "This part is too long for the Groq free tier's per-minute limit.", { retryAfter: 60 });
   if (!r.ok) {
@@ -39,6 +58,8 @@ export async function chatJson(key, system, user, { effort = "medium", maxOut = 
   try { data = JSON.parse(text); } catch { throw new HttpError(502, "Groq returned an unreadable reply.", { retryAfter: 2 }); }
   const choice = data.choices && data.choices[0];
   if (choice && choice.finish_reason === "length") throw new HttpError(502, "Groq ran out of output space for this part.", { retryAfter: 2 });
-  try { return { json: JSON.parse(choice.message.content), usage: data.usage || {} }; }
+  // reserved = what Groq counts against the per-minute token limit (input + the output we allow)
+  const usage = { ...(data.usage || {}), reserved: input + max, limits: limitsFrom(r.headers) };
+  try { return { json: JSON.parse(choice.message.content), usage }; }
   catch { throw new HttpError(502, "Groq returned broken JSON. Retrying usually fixes it.", { retryAfter: 2 }); }
 }

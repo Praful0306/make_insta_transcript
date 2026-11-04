@@ -1,5 +1,6 @@
-// Neon database helper. Each user brings their own Neon connection string in the
+// Neon database helper. Every user brings their own Neon connection string in the
 // x-neon-url header. It is used for this request only and is never stored or logged.
+// The server holds no database of its own.
 import { neon } from "@neondatabase/serverless";
 
 const ready = new Set(); // connection strings whose tables already exist in this warm instance
@@ -90,8 +91,10 @@ export function neonUrlFrom(req) {
 }
 
 // Returns q(text, params) -> rows. Creates the tables on first use.
-export async function db(req) {
-  const url = neonUrlFrom(req);
+// readOnly: never runs CREATE statements, so a read-only Neon role works (used by the public API).
+// url: use this connection string instead of the caller's (server-side only, for the paid library).
+export async function db(req, { readOnly = false, url: fixedUrl } = {}) {
+  const url = fixedUrl || neonUrlFrom(req);
   const sql = neon(url);
   const q = async (text, params = []) => {
     try { return await sql.query(text, params); }
@@ -99,11 +102,12 @@ export async function db(req) {
       const msg = String((e && e.message) || e);
       if (/password authentication|authentication failed|role .* does not exist/i.test(msg)) throw new HttpError(400, "Neon rejected the database URL (wrong password or user). Copy it again from Neon → Connect.", { code: "keys" });
       if (/fetch failed|ENOTFOUND|getaddrinfo|endpoint .* not found|could not find/i.test(msg)) throw new HttpError(400, "Couldn't reach your Neon database. Check the URL in API keys, and that the project still exists.", { code: "keys" });
+      if (readOnly && /relation "(traders|accounts|sources|chunks|rules)" does not exist/i.test(msg)) throw new HttpError(404, "No knowledge base found in this database yet. Add a video in the website first, using this same Neon URL.", { code: "empty" });
       if (/exceeded|quota|size limit/i.test(msg)) throw new HttpError(507, "Your Neon database is full or over its free quota. Check your Neon dashboard.");
       throw new HttpError(500, "Database error: " + msg.slice(0, 200));
     }
   };
-  if (!ready.has(url)) {
+  if (!readOnly && !ready.has(url)) {
     for (const s of SCHEMA) await q(s);
     ready.add(url);
   }
@@ -126,6 +130,8 @@ export function send(res, err) {
   const out = { ok: false, error: err instanceof HttpError ? err.message : "Something went wrong on the server." };
   if (err && err.code) out.code = err.code;
   if (err && err.retryAfter != null) out.retryAfter = err.retryAfter;
+  if (err && err.daily) out.daily = true;
+  if (err && err.limits) out.limits = err.limits;
   if (!(err instanceof HttpError)) console.error("kb error", err && err.message);
   return res.status(status).json(out);
 }

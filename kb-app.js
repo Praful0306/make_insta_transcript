@@ -2,7 +2,8 @@
    Uses the same keys as the transcriber (memKeys) plus the Neon database URL. */
 (() => {
 const KB_MAX = 50, KB_CONCURRENCY = 2;
-let kbStop = false, groqTurn = 0, apifyTurn = 0, traders = [], current = null;
+let kbStop = false, apifyTurn = 0, traders = [], current = null;
+
 const NS = "Not stated";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -65,7 +66,10 @@ async function api(path, body, headers = {}){
   data.http = res.status;
   return data;
 }
-const kb = (body, headers = {}) => api("/api/kb", body, {"x-neon-url": memKeys.neon, ...headers});
+// Optional Neon file storage: sent only when the user filled it in (all four values).
+const s3Headers = () => { const o = memKeys.s3 || {}; return o.key && o.secret && o.endpoint && o.region
+  ? {"x-neon-s3-key": o.key, "x-neon-s3-secret": o.secret, "x-neon-s3-endpoint": o.endpoint, "x-neon-s3-region": o.region, "x-neon-s3-bucket": o.bucket || "assets"} : {}; };
+const kb = (body, headers = {}) => api("/api/kb", body, {"x-neon-url": memKeys.neon, ...s3Headers(), ...headers});
 
 /* ---------- step 1: transcript ---------- */
 async function getInstagram(item, say){
@@ -95,25 +99,112 @@ async function getYoutube(item, say){
   throw new Error(last);
 }
 
-/* ---------- step 3: extraction loop with key rotation ---------- */
-async function runStep(chunkId, say){
-  let fails = 0;
+/* ---------- step 3: Groq key pool ----------
+   One part (chunk) of a video goes to ONE key for all three of its calls (translate, extract, verify).
+   The next part goes to the next key, round and round, so a long video uses every key at once.
+   A key rests between parts and between calls so it stays inside Groq's per-minute token limit
+   (free tier: about 8,000 tokens per minute per key for this model; the real numbers come back in
+   Groq's response headers and are used when present). A 429 puts that key to sleep for the time Groq
+   asks, and the part moves to another key. A per-day limit parks the key until it resets. */
+const TPM = 8000;                  // free-tier tokens/min per key (gpt-oss-120b), used only when headers are missing
+const GAP_MIN = 60000, GAP_MAX = 120000; // rest between two parts on the same key: 1 to 2 minutes
+const CALL_FLOOR = 5000, CALL_CAP = 120000; // min / max wait between two calls on the same key
+const pool = {keys: [], turn: 0};
+const nowMs = () => Date.now();
+const fmtWait = ms => { const s = Math.ceil(ms / 1000); return s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.floor(s % 3600 / 60)} min` : s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`; };
+function poolSync(){
+  pool.keys = memKeys.groq.map((key, i) => { const old = pool.keys.find(k => k.key === key);
+    return Object.assign(old || {key, busy: false, free: 0, blocked: 0, dead: false, daily: false, gap: GAP_MIN, pace: 1}, {n: i + 1}); });
+}
+async function nap(ms, say, text){
+  const end = nowMs() + ms;
+  while (nowMs() < end){
+    if (kbStop) throw new Error("Stopped. Paste the link again, or press Retry, to carry on.");
+    if (say && text) say(`${text} ${fmtWait(end - nowMs())}…`);
+    await sleep(Math.min(1000, Math.max(100, end - nowMs())));
+  }
+}
+async function acquireKey(say){
   for (;;){
-    if (kbStop) throw new Error("Stopped. Paste the link again to carry on.");
-    const g = memKeys.groq, key = g[groqTurn % g.length];
-    const d = await kb({action: "step", chunkId}, {"x-groq-key": key});
-    if (d.ok) return d;
-    if (d.code === "keys") { const e = new Error(d.error); e.code = "keys"; throw e; }
-    fails++;
-    if (fails > 8) throw new Error(d.error || "This part keeps failing.");
-    groqTurn++; // next key
-    if (d.code === "groqkey" && fails < g.length) continue;
-    const wait = (d.retryAfter || 5) * (fails % g.length === 0 || g.length === 1 ? 1 : 0.1);
-    for (let s = Math.ceil(wait); s > 0; s--){
-      if (kbStop) break;
-      say(`${d.error || "Waiting"} Trying again in ${s} s…`); await sleep(1000);
+    if (kbStop) throw new Error("Stopped. Paste the link again, or press Retry, to carry on.");
+    poolSync();
+    const live = pool.keys.filter(k => !k.dead);
+    if (!live.length){ const e = new Error("Groq rejected every key you added. Check them in API keys."); e.code = "keys"; throw e; }
+    const t = nowMs(), n = pool.keys.length;
+    for (let i = 0; i < n; i++){
+      const k = pool.keys[(pool.turn + i) % n];
+      if (!k.dead && !k.busy && Math.max(k.free, k.blocked) <= t){ k.busy = true; pool.turn = (pool.turn + i + 1) % n; return k; }
+    }
+    const idle = live.filter(k => !k.busy);
+    if (idle.length && idle.every(k => k.daily)){
+      const wait = Math.min(...idle.map(k => k.blocked)) - t;
+      if (wait > 10 * 60000 && live.every(k => k.daily)){ const e = new Error(`Every Groq key has reached its daily limit. They reset in about ${fmtWait(wait)}. Press Retry then, nothing is lost.`); e.code = "daily"; throw e; }
+    }
+    const next = Math.min(...live.map(k => k.busy ? Infinity : Math.max(k.free, k.blocked)));
+    say(next === Infinity ? "Waiting for a free Groq key…" : `All Groq keys are resting. Next one is free in ${fmtWait(next - t)}…`);
+    await sleep(1000);
+  }
+}
+const durMs = txt => { const m = /^(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m(?!s))?(?:(\d+(?:\.\d+)?)s)?(?:(\d+(?:\.\d+)?)ms)?$/.exec(String(txt || "")); return m && (m[1] || m[2] || m[3] || m[4]) ? ((+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0)) * 1000 + (+m[4] || 0) : null; };
+// After a call: decide when this key may be used again, from Groq's own numbers when we have them.
+function afterCall(k, u){
+  const reserved = (u && (u.reserved || u.total_tokens)) || TPM, L = (u && u.limits) || {};
+  let wait = Math.min(1, reserved / TPM) * 60000;                      // fallback: the tokens this call used up of one minute
+  if (L.remainTok != null){ const reset = durMs(L.resetTok); wait = L.remainTok >= reserved * 1.1 ? CALL_FLOOR : (reset != null ? reset + 1000 : wait); }
+  k.free = nowMs() + Math.min(CALL_CAP, Math.max(CALL_FLOOR, wait * k.pace));
+  k.pace = Math.max(1, k.pace * .9);
+}
+function rateLimited(k, d){
+  const wait = Math.max(5, d.retryAfter || 20) * 1000;
+  k.blocked = nowMs() + wait; k.daily = !!d.daily;
+  k.pace = Math.min(2.5, k.pace * 1.5); k.gap = Math.min(GAP_MAX, k.gap * 1.5);
+}
+function releaseKey(k, ok){
+  k.busy = false;
+  if (ok) k.gap = Math.max(GAP_MIN, k.gap * .85);
+  k.free = Math.max(k.free, nowMs() + k.gap);                           // 1 to 2 minutes of rest before the next part
+  if (k.daily && k.blocked <= nowMs()) k.daily = false;
+}
+// Runs all calls for one part on one key. Moves to another key only when this one is rate-limited or rejected.
+async function runChunk(chunk, say){
+  let status = chunk.status, tries = 0;
+  const STEP = {pending: "Translating to English", translated: "Extracting rules", extracted: "Verifying every rule against the transcript"};
+  while (status !== "done"){
+    const k = await acquireKey(say);
+    let ok = true;
+    try {
+      while (status !== "done"){
+        const wait = k.free - nowMs();
+        if (wait > 0) await nap(wait, say, `Key ${k.n} is resting to stay inside Groq's per-minute limit:`);
+        say(`Key ${k.n}: ${STEP[status] || "Working"}…`);
+        const d = await kb({action: "step", chunkId: chunk.id}, {"x-groq-key": k.key});
+        if (d.ok){ const same = d.status === status; status = d.status; afterCall(k, d.usage); if (same && ++tries > 3) throw new Error("This part isn't moving forward."); if (!same) tries = 0; continue; }
+        if (d.code === "keys"){ const e = new Error(d.error); e.code = "keys"; throw e; }
+        if (d.code === "groqkey"){ k.dead = true; ok = false; say(`Groq rejected key ${k.n}. Moving this part to another key…`); break; }
+        if (d.http === 429){ rateLimited(k, d); ok = false; say(d.daily ? `Key ${k.n} reached its daily limit. Moving this part to another key…` : `Key ${k.n} hit Groq's rate limit. Moving this part to another key…`); break; }
+        if (++tries > 6) throw new Error(d.error || "This part keeps failing.");
+        await nap(Math.min(15, d.retryAfter || 5) * 1000, say, `${d.error || "Something went wrong."} Trying again in`);
+        if (tries % 3 === 0){ ok = false; break; }   // after three failures on this key, try another one
+      }
+    } finally { releaseKey(k, ok); }
+  }
+}
+// Runs every unfinished part of a source. Up to one part per usable key runs at once.
+async function runChunks(chunks, say, onProgress){
+  const todo = chunks.filter(c => c.status !== "done"), total = chunks.length;
+  let next = 0, done = total - todo.length, fatal = null; const failures = [];
+  onProgress && onProgress(done, total);
+  poolSync();
+  const width = Math.max(1, Math.min(todo.length, pool.keys.filter(k => !k.dead).length));
+  async function worker(){
+    while (!fatal && !kbStop && next < todo.length){
+      const c = todo[next++], n = chunks.indexOf(c) + 1;
+      try { await runChunk(c, t => say(`Part ${n} of ${total} · ${t}`)); done++; onProgress && onProgress(done, total); }
+      catch (e){ if (e.code === "keys" || e.code === "daily") fatal = fatal || e; else if (kbStop) { fatal = fatal || e; } else failures.push(`Part ${n}: ${e.message}`); }
     }
   }
+  await Promise.all(Array.from({length: width}, worker));
+  return {fatal, failures, done, total};
 }
 
 /* ---------- one link, start to finish ---------- */
@@ -142,17 +233,10 @@ async function processItem(item, ui){
   ui.chip.textContent = src.existing ? "Already saved · resuming" : src.newTrader ? "New trader" : "Added to trader";
   if (src.newTrader) await offerMerge(ui, src);
 
-  const parts = src.chunks.filter(c => c.status !== "done");
-  const total = src.chunks.length;
-  for (const c of parts){
-    const n = src.chunks.indexOf(c) + 1;
-    let status = c.status;
-    while (status !== "done"){
-      const label = status === "pending" ? "Translating to English" : status === "translated" ? "Extracting rules" : "Verifying every rule against the transcript";
-      say(`Part ${n} of ${total}: ${label}…`);
-      ui.bar.style.width = `${Math.round(((n - 1) + (status === "pending" ? 0 : status === "translated" ? .33 : .66)) / total * 100)}%`;
-      status = (await runStep(c.id, t => say(`Part ${n} of ${total}: ${t}`))).status;
-    }
+  const run = await runChunks(src.chunks, say, (d, t) => { ui.bar.style.width = `${Math.round(d / t * 100)}%`; });
+  if (run.fatal || run.failures.length){
+    await kb({action: "finish", sourceId: src.sourceId});          // keep what was finished, so Retry carries on from here
+    throw run.fatal || new Error(`${run.failures.length} of ${run.total} parts failed. ${run.failures[0]}`);
   }
   ui.bar.style.width = "100%";
   const f = await kb({action: "finish", sourceId: src.sourceId});
@@ -209,27 +293,51 @@ async function startKb(){
     jobs.append(card);
     return {chip, title, msg, bar: barI, actions};
   });
-  let next = 0, done = 0, failed = 0;
+  let done = 0, failed = 0;
+  const failedIdx = new Set();
   const status = () => $("kbStatus").textContent = `${done} done${failed ? `, ${failed} failed` : ""} of ${items.length}`;
   status();
-  async function worker(){
-    while (next < items.length){
-      const i = next++, ui = uis[i];
-      if (kbStop){ ui.msg.textContent = "Not started."; continue; }
-      ui.chip.textContent = "Working"; ui.chip.className = "chip run";
-      try { await processItem(items[i], ui); done++; }
-      catch (e){
-        failed++; ui.chip.textContent = "Failed"; ui.chip.className = "chip bad";
-        ui.msg.textContent = (e && e.message) || "Something went wrong."; ui.msg.className = "msg err";
-        if (e && e.code === "keys"){ kbStop = true; openDrawer(); }
-      }
-      status();
-      loadTraders();
+  const busy = () => $("kbGo").disabled;                          // a run is in progress
+  const setRetryEnabled = () => uis.forEach(u => { if (u.retry) u.retry.disabled = busy(); });
+  function fail(i, message, code){
+    const ui = uis[i];
+    failed++; failedIdx.add(i); ui.chip.textContent = "Failed"; ui.chip.className = "chip bad";
+    ui.msg.textContent = message || "Something went wrong."; ui.msg.className = "msg err";
+    if (!ui.retry){
+      ui.retry = el("button", {type: "button", class: "primary"}, "Retry");
+      ui.retry.addEventListener("click", async () => {
+        kbStop = false; $("kbGo").disabled = true; $("kbStop").hidden = false; $("kbRetryAll").hidden = true; setRetryEnabled();
+        await runOne(i);
+        $("kbGo").disabled = false; $("kbStop").hidden = true; setRetryEnabled(); syncRetryAll(); status();
+      });
+      ui.actions.prepend(ui.retry);
     }
+    ui.retry.disabled = busy();
+    if (code === "keys"){ kbStop = true; openDrawer(); }
   }
-  await Promise.all(Array.from({length: Math.min(KB_CONCURRENCY, items.length)}, worker));
+  async function runOne(i){
+    const ui = uis[i];
+    if (ui.retry){ ui.retry.remove(); ui.retry = null; }
+    if (failedIdx.delete(i)) failed--;
+    ui.chip.textContent = "Working"; ui.chip.className = "chip run"; ui.msg.className = "msg";
+    try { await processItem(items[i], ui); done++; }
+    catch (e){ fail(i, e && e.message, e && e.code); }
+    status(); loadTraders();
+  }
+  function syncRetryAll(){ $("kbRetryAll").hidden = failedIdx.size === 0 || busy(); }
+  async function runQueue(list){
+    let k = 0;
+    async function w(){ while (k < list.length){ const i = list[k++]; if (kbStop){ fail(i, "Not started because the run was stopped."); continue; } await runOne(i); } }
+    await Promise.all(Array.from({length: Math.min(KB_CONCURRENCY, list.length)}, w));
+  }
+  $("kbRetryAll").onclick = async () => {
+    kbStop = false; $("kbGo").disabled = true; $("kbStop").hidden = false; $("kbRetryAll").hidden = true; setRetryEnabled();
+    await runQueue([...failedIdx].sort((a, b) => a - b));
+    $("kbGo").disabled = false; $("kbStop").hidden = true; setRetryEnabled(); syncRetryAll(); status();
+  };
+  await runQueue(items.map((_, i) => i));
   $("kbGo").disabled = false; $("kbStop").hidden = true;
-  status();
+  setRetryEnabled(); status(); syncRetryAll();
   try { refreshApify(); } catch {}
 }
 
@@ -397,13 +505,12 @@ async function reExtract(s, btn){
     const r = await kb({action: "ingest", platform: s.platform, url: s.url}); if (!r.ok){ btn.textContent = r.error; return; } chunks = r.chunks;
   }
   try {
-    for (const [i, c] of chunks.entries()){
-      let st = c.status;
-      while (st !== "done"){ btn.textContent = `Part ${i + 1} of ${chunks.length}…`; st = (await runStep(c.id, t => btn.textContent = t)).status; }
-    }
+    const run = await runChunks(chunks, t => btn.textContent = t);
     await kb({action: "finish", sourceId: s.id});
+    if (run.fatal) throw run.fatal;
+    if (run.failures.length) throw new Error(`${run.failures.length} of ${run.total} parts failed. ${run.failures[0]}`);
     openTrader(current.trader.id, "sources");
-  } catch (e){ btn.textContent = e.message; }
+  } catch (e){ btn.disabled = false; btn.textContent = "Retry: " + e.message; btn.title = e.message; }
 }
 
 function renderManage(body){
@@ -535,5 +642,6 @@ kbCounter();
 const h = location.hash;
 if (h === "#usage") showView("usage");
 else if (h === "#kb") showView("kb");
+else if (h === "#api") showView("api");
 else if (/^#trader-\d+$/.test(h)) openTrader(+h.slice(8));
 })();
