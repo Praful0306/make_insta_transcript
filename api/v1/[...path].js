@@ -4,22 +4,27 @@
 import { db, send, HttpError } from "../_db.js";
 import { parseFilters, listTraders, getTrader, getSource, listRules, listConcepts, knowledge, knowledgeMarkdown } from "../_knowledge.js";
 import { openapi } from "../_openapi.js";
+import { authConfig, libraryRoute, accountRoute } from "../_libraryRoutes.js";
 
 const origin = req => `${(req.headers["x-forwarded-proto"] || "https").split(",")[0]}://${req.headers["x-forwarded-host"] || req.headers.host}`;
 const intId = s => { const n = parseInt(s, 10); if (!Number.isFinite(n) || String(n) !== s) throw new HttpError(400, "The id must be a number."); return n; };
 
 export default async function handler(req, res) {
-  // Browser-based tools may call this too. There are no cookies; the credential is the header.
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "x-neon-url, content-type");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Cache-Control", "no-store");
-  if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "GET") { res.setHeader("Allow", "GET, OPTIONS"); return res.status(405).json({ ok: false, error: "This API is read-only. Use GET." }); }
-
   const u = new URL(req.url, "http://x");
   const path = u.pathname.replace(/^\/api\/v1\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
   const [a, b] = path;
+  res.setHeader("Cache-Control", "no-store");
+  // The paid library and accounts have their own rules (no CORS, API keys or sign-in). See api/_library.js.
+  if (a === "library") return libraryRoute(req, res, u, path.slice(1));
+  if (a === "account") return accountRoute(req, res, u, path.slice(1));
+  if (a === "auth-config") return authConfig(req, res);
+
+  // Your own knowledge base (free): browser-based tools may call this too. No cookies; the credential is the header.
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "x-neon-url, content-type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  if (req.method === "OPTIONS") return res.status(204).end();
+  if (req.method !== "GET") { res.setHeader("Allow", "GET, OPTIONS"); return res.status(405).json({ ok: false, error: "This API is read-only. Use GET." }); }
   try {
     if (!a) return res.status(200).json({
       name: "Trader knowledge base API", version: "1.0.0", readOnly: true,

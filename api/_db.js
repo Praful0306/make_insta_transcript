@@ -92,8 +92,9 @@ export function neonUrlFrom(req) {
 
 // Returns q(text, params) -> rows. Creates the tables on first use.
 // readOnly: never runs CREATE statements, so a read-only Neon role works (used by the public API).
-export async function db(req, { readOnly = false } = {}) {
-  const url = neonUrlFrom(req);
+// url: use this connection string instead of the caller's (server-side only, for the paid library).
+export async function db(req, { readOnly = false, url: fixedUrl } = {}) {
+  const url = fixedUrl || neonUrlFrom(req);
   const sql = neon(url);
   const q = async (text, params = []) => {
     try { return await sql.query(text, params); }

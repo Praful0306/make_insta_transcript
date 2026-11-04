@@ -70,14 +70,14 @@ export async function listTraders(q) {
   return { traders };
 }
 
-export async function getTrader(q, id, f, withTranscripts) {
+export async function getTrader(q, id, f, withTranscripts, { limit = MAX_RULES, offset = 0 } = {}) {
   const trader = (await q(`SELECT id, name, created_at FROM traders WHERE id=$1`, [id]))[0];
   if (!trader) throw new HttpError(404, "Trader not found.");
   const accounts = await q(`SELECT platform, handle, display_name, url FROM accounts WHERE trader_id=$1 ORDER BY platform, handle`, [id]);
   const cols = withTranscripts ? ", s.transcript, s.english" : "";
   const sources = await q(`SELECT s.id, s.platform, s.url, s.title, s.language, s.duration_sec, s.created_at${cols} FROM sources s WHERE s.trader_id=$1 ORDER BY s.created_at`, [id]);
   const w = where({ ...f, trader: [id] });
-  const rules = await q(`${RULE_SELECT} ${w.sql} ORDER BY s.created_at, r.chunk_id, r.ord, r.id LIMIT ${MAX_RULES}`, w.args);
+  const rules = await q(`${RULE_SELECT} ${w.sql} ORDER BY s.created_at, r.chunk_id, r.ord, r.id LIMIT ${+limit} OFFSET ${+offset}`, w.args);
   return { trader, accounts, sources, rules: rules.map(shape) };
 }
 
@@ -108,11 +108,11 @@ export async function listConcepts(q, f) {
 
 // All matching rules from all (or the chosen) traders, grouped by concept so rules
 // from different traders about the same idea sit together.
-export async function knowledge(q, f) {
+export async function knowledge(q, f, { limit = MAX_RULES, offset = 0 } = {}) {
   const w = where(f);
-  const rows = await q(`${RULE_SELECT} ${w.sql} ORDER BY t.name, s.created_at, r.chunk_id, r.ord, r.id LIMIT ${MAX_RULES + 1}`, w.args);
-  const truncated = rows.length > MAX_RULES;
-  const rules = rows.slice(0, MAX_RULES).map(shape);
+  const rows = await q(`${RULE_SELECT} ${w.sql} ORDER BY t.name, s.created_at, r.chunk_id, r.ord, r.id LIMIT ${+limit + 1} OFFSET ${+offset}`, w.args);
+  const truncated = rows.length > limit;
+  const rules = rows.slice(0, limit).map(shape);
   const groups = new Map();
   for (const r of rules) {
     const k = (r.concept || "").trim() || "General";
@@ -123,14 +123,14 @@ export async function knowledge(q, f) {
     .map(([concept, rs]) => ({ concept, rules: rs.length, traders: [...new Set(rs.map(r => r.trader.name))], items: rs }))
     .sort((a, b) => b.rules - a.rules || a.concept.localeCompare(b.concept));
   const traders = [...new Map(rules.map(r => [r.trader.id, r.trader])).values()];
-  return { generated: new Date().toISOString(), rule_count: rules.length, verified_count: rules.filter(r => r.verified).length, truncated, traders, concepts };
+  return { generated: new Date().toISOString(), rule_count: rules.length, verified_count: rules.filter(r => r.verified).length, truncated, next_offset: truncated ? +offset + limit : null, traders, concepts };
 }
 
 /* ---------- markdown ---------- */
 export function knowledgeMarkdown(k, f) {
   const L = [];
   L.push("# Trading knowledge base (combined)", "");
-  L.push(`Generated ${k.generated.slice(0, 10)}. ${k.rule_count} rules from ${k.traders.length} trader(s): ${k.verified_count} verified against the transcript, ${k.rule_count - k.verified_count} marked NEEDS REVIEW.${k.truncated ? ` Output was cut at ${MAX_RULES} rules; narrow it with trader, concept or verified.` : ""}`);
+  L.push(`Generated ${k.generated.slice(0, 10)}. ${k.rule_count} rules from ${k.traders.length} trader(s): ${k.verified_count} verified against the transcript, ${k.rule_count - k.verified_count} marked NEEDS REVIEW.${k.truncated ? ` Output was cut; ask for the next page with offset=${k.next_offset}, or narrow it with trader, concept or verified.` : ""}`);
   if (f.verified === true) L.push("Only verified rules are included.");
   L.push("", "## How to use this file", "",
     "- Every rule comes only from the named trader's own words, with the exact quote and a link to the source (with a timestamp for YouTube).",
