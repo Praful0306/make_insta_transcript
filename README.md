@@ -19,6 +19,29 @@ Browser → `/api/transcribe` (Vercel function, only forwards) → the user's ow
 1. vercel.com → Add New → Project → import this repo. No build settings and no environment variables needed.
 2. Deploy.
 
+## Neon team project (database + file storage)
+
+`neon.ts` declares the team's Neon services: Postgres and a private `assets` bucket.
+`neon deploy` provisions them and writes their env vars to `.env.local` (never committed).
+
+- **Database.** If `DATABASE_URL` is set, the knowledge base uses it whenever a user hasn't
+  pasted their own Neon URL in API keys. A pasted URL still wins, for a private knowledge base.
+- **File storage.** Thumbnails for sources saved to the team database are copied into the
+  `assets` bucket (Instagram's image links expire) and shown through short-lived signed URLs.
+
+Vercel env vars (Settings → Environment Variables). Vercel reserves the `AWS_*` names,
+so the storage values use `NEON_S3_*` names there:
+
+| Vercel name | Value from `.env.local` |
+| --- | --- |
+| `DATABASE_URL` | `DATABASE_URL` (pooled) |
+| `NEON_S3_ACCESS_KEY_ID` | `AWS_ACCESS_KEY_ID` |
+| `NEON_S3_SECRET_ACCESS_KEY` | `AWS_SECRET_ACCESS_KEY` |
+| `NEON_S3_ENDPOINT` | `AWS_ENDPOINT_URL_S3` |
+| `NEON_S3_REGION` | `AWS_REGION` |
+
+Without these, the app behaves as before: each user pastes their own Neon URL.
+
 ## Limits
 
 - 3 reels run at a time, about 30–60 s each.

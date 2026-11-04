@@ -296,7 +296,7 @@ button.bad{color:var(--bad);border-color:var(--bad)}
 <aside class="drawer" id="drawer" aria-label="API keys" aria-hidden="true" inert>
   <div class="drawer-in">
     <h2>API keys</h2>
-    <p class="hint">Everything runs on your own accounts, so you only pay for what you use. Transcribing needs the Make webhook, a Groq key and an Apify token. The knowledge base also needs your Neon database URL.</p>
+    <p class="hint">Everything runs on your own accounts, so you only pay for what you use. Transcribing needs the Make webhook, a Groq key and an Apify token. The knowledge base saves to the shared team database on Neon when this app has one, otherwise to your own Neon database URL below.</p>
     <div class="field">
       <label class="label" for="kHook">Make.com webhook URL</label>
       <input id="kHook" type="url" autocomplete="off" spellcheck="false" placeholder="https://hook.eu1.make.com/...">
@@ -315,6 +315,7 @@ button.bad{color:var(--bad);border-color:var(--bad)}
     </div>
     <div class="field">
       <label class="label" for="kNeon">Neon database URL (for the knowledge base)</label>
+      <p class="hint" id="kNeonOptional" hidden>Optional: this app already has a shared team database on Neon. Leave this blank to use it, or paste your own URL to keep a separate, private knowledge base.</p>
       <input id="kNeon" class="kNeon" type="password" autocomplete="off" spellcheck="false" placeholder="postgresql://user:password@ep-....neon.tech/neondb?sslmode=require">
       <details class="steps" id="neonSteps">
         <summary>How to get your Neon database URL (about 2 minutes)</summary>
@@ -548,7 +549,7 @@ $("copyAll").addEventListener("click", e => {
 
 const drawer = $("drawer"), scrim = $("scrim");
 function fillForm(){ [1,2,3].forEach(n => { $("kGroq"+n).value = memKeys.groq[n-1] || ""; $("kApify"+n).value = memKeys.apify[n-1] || ""; }); $("kHook").value = memKeys.hook || ""; $("kNeon").value = memKeys.neon || ""; $("kErr").hidden = true; }
-function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => { if (!drawer.contains(document.activeElement)) $("kHook").focus(); }, 50); $("hookSteps").open = !memKeys.hook; $("neonSteps").open = !memKeys.neon && !!memKeys.hook; }
+function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => { if (!drawer.contains(document.activeElement)) $("kHook").focus(); }, 50); $("hookSteps").open = !memKeys.hook; $("neonSteps").open = !memKeys.neon && !!memKeys.hook && !(typeof kbServer !== "undefined" && kbServer.teamDb); }
 function closeDrawer(){ drawer.classList.remove("open"); drawer.setAttribute("inert",""); drawer.setAttribute("aria-hidden","true"); scrim.hidden = true; $("navKeys").setAttribute("aria-expanded","false"); $("navKeys").focus(); }
 function updateKeyUi(){ const ok = keysReady(); $("keyDot").className = "dot" + (ok ? " on" : ""); $("keysMissing").hidden = ok; if (typeof kbKeyUi === "function") kbKeyUi(); }
 $("navKeys").addEventListener("click", () => drawer.classList.contains("open") ? closeDrawer() : openDrawer());
