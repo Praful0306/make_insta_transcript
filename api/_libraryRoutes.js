@@ -15,10 +15,13 @@ const planInfo = () => ({
 });
 const active = e => !!e && (e.status === "active" || e.status === "cancelled") && new Date(e.period_end) > new Date();
 
+// Browsers that block third-party storage break Firebase popups when the sign-in handler lives on firebaseapp.com.
+// With FIREBASE_AUTH_SAME_ORIGIN=1 the handler is served from this site (see the /__/auth rewrite in vercel.json).
+const sameOrigin = req => process.env.FIREBASE_AUTH_SAME_ORIGIN === "1" ? String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim().toLowerCase() || null : null;
 export function authConfig(req, res) {
   const p = process.env.FIREBASE_PROJECT_ID, k = process.env.FIREBASE_API_KEY, d = process.env.FIREBASE_AUTH_DOMAIN;
   res.setHeader("Cache-Control", "no-store");
-  return res.status(200).json({ login_ready: !!(p && k && d), library_open: libraryConfigured(), firebase: p && k && d ? { projectId: p, apiKey: k, authDomain: d } : null, plan: planInfo() });
+  return res.status(200).json({ login_ready: !!(p && k && d), library_open: libraryConfigured(), firebase: p && k && d ? { projectId: p, apiKey: k, authDomain: sameOrigin(req) || d } : null, plan: planInfo() });
 }
 
 export async function libraryRoute(req, res, u, path) {
