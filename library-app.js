@@ -47,15 +47,16 @@
     const p = a.plan, e = a.entitlement, ok = !!(e && e.active);
     const price = p.price_inr_month ? `₹${p.price_inr_month} / month` : "Price to be announced";
     $("libPlan").innerHTML = ok
-      ? `<p><b>Active</b> (${esc(e.plan)}). Access until ${esc(new Date(e.period_end).toLocaleDateString())}${e.status === "cancelled" ? " (cancelled, no further charge)" : ""}.</p>
-         <p class="hint">Today: ${a.usage.requests} of ${p.limits.reqPerDay} calls, ${a.usage.rules} of ${p.limits.rulesPerDay} rules. Resets at 05:30 IST.</p>`
+      ? (e.owner ? `<p><b>Owner account.</b> Full access with no limits. Limits apply to customers only.</p>`
+        : `<p><b>Active</b> (${esc(e.plan)}). Access until ${esc(new Date(e.period_end).toLocaleDateString())}${e.status === "cancelled" ? " (cancelled, no further charge)" : ""}.</p>
+         <p class="hint">Today: ${a.usage.requests} of ${p.limits.reqPerDay} calls, ${a.usage.rules} of ${p.limits.rulesPerDay} rules. Resets at 05:30 IST.</p>`)
       : `<p><b>Locked.</b> Signed in as ${esc(a.email)}. No library data or API access until payment.</p>
          <p>Builder plan: ${esc(price)}. Up to ${p.limits.reqPerDay} calls and ${p.limits.rulesPerDay} rules a day.</p>
          <div class="row"><button type="button" class="primary" id="libBuy" ${p.checkout_open ? "" : "disabled"}>${p.checkout_open ? "Pay and unlock" : "Payments open soon"}</button></div>`;
     $("libPaid").hidden = !ok;
     if (ok) {
       $("libKeys").innerHTML = a.keys.length ? a.keys.map(k => `<div class="row"><code>${esc(k.prefix)}…</code> <span class="hint">${esc(k.label || "")} ${k.revoked ? "(revoked)" : ""}</span>${k.revoked ? "" : `<button type="button" data-rev="${k.id}">Revoke</button>`}</div>`).join("") : "<p class='hint'>No keys yet.</p>";
-      $("libPrompt").textContent = `Use my paid trading knowledge base to build: <what you want>.\nAPI: ${location.origin}/api/v1/library (GET only). Send my key in the x-api-key header from the environment variable KB_LIBRARY_KEY. Never print or save it.\nStart with /knowledge?format=markdown&verified=true. Do not guess anything marked "Not stated". Educational only, not financial advice.\nLimits: ${p.limits.reqPerMin} calls/min, ${p.limits.reqPerDay} calls/day, ${p.limits.rulesPerCall} rules per call. Stop on 429 and wait.`;
+      $("libPrompt").textContent = `Use my paid trading knowledge base to build: <what you want>.\nAPI: ${location.origin}/api/v1/library (GET only). Send my key in the x-api-key header from the environment variable KB_LIBRARY_KEY. Never print or save it.\nStart with /knowledge?format=markdown&verified=true. Do not guess anything marked "Not stated". Educational only, not financial advice.\n${e.owner ? "" : `Limits: ${p.limits.reqPerMin} calls/min, ${p.limits.reqPerDay} calls/day, ${p.limits.rulesPerCall} rules per call. Stop on 429 and wait.`}`;
     }
   }
 

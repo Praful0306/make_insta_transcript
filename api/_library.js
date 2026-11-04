@@ -89,16 +89,16 @@ export async function identify(req, q, { tokenOnly = false } = {}) {
   const owners = (process.env.OWNER_EMAILS || "").toLowerCase().split(",").map(x => x.trim()).filter(Boolean);
   if (owners.includes(t.email)) await q(`INSERT INTO lib_entitlements(uid, plan, status, period_end, source) VALUES($1,$2,'active', now() + interval '400 days','owner')
       ON CONFLICT (uid) DO UPDATE SET status='active', period_end=now() + interval '400 days', source='owner', updated_at=now()
-      WHERE lib_entitlements.period_end < now() + interval '30 days'`, [t.uid, PLAN]);
+      WHERE lib_entitlements.period_end < now() + interval '30 days' OR lib_entitlements.source <> 'owner'`, [t.uid, PLAN]);
   return { uid: t.uid, email: t.email, via: "token" };
 }
 
 /* ---------- payment ---------- */
 export async function entitlementOf(q, uid) {
-  return (await q(`SELECT plan, status, period_end FROM lib_entitlements WHERE uid=$1`, [uid]))[0] || null;
+  return (await q(`SELECT plan, status, period_end, source FROM lib_entitlements WHERE uid=$1`, [uid]))[0] || null;
 }
 export async function assertPaid(q, uid) {
-  const e = (await q(`SELECT plan FROM lib_entitlements WHERE uid=$1 AND status IN ('active','cancelled') AND period_end > now()`, [uid]))[0];
+  const e = (await q(`SELECT plan, source FROM lib_entitlements WHERE uid=$1 AND status IN ('active','cancelled') AND period_end > now()`, [uid]))[0];
   if (!e) throw new HttpError(402, "The library is for paying members. Subscribe to unlock it. No library data is sent without an active plan.", { code: "payment_required" });
   return e;
 }
@@ -150,9 +150,11 @@ export async function refundRules(q, uid, reserved, served) {
 export async function gate(req) {
   const q = await libraryDb();                       // fails closed when the library isn't configured
   const who = await identify(req, q);                // 401 / 403
-  await assertPaid(q, who.uid);                      // 402
+  const e = await assertPaid(q, who.uid);            // 402
+  // The owner (a verified email in OWNER_EMAILS) is not limited. Everyone else is counted and limited.
+  if (e.source === "owner") return { q, who, rulesUsed: 0, owner: true };
   const today = await spendRequest(q, who.uid);      // 429
-  return { q, who, rulesUsed: today.rules };
+  return { q, who, rulesUsed: today.rules, owner: false };
 }
 
 /* ---------- API keys ---------- */
