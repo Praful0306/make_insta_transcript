@@ -129,6 +129,8 @@ export function send(res, err) {
   const out = { ok: false, error: err instanceof HttpError ? err.message : "Something went wrong on the server." };
   if (err && err.code) out.code = err.code;
   if (err && err.retryAfter != null) out.retryAfter = err.retryAfter;
+  if (err && err.daily) out.daily = true;
+  if (err && err.limits) out.limits = err.limits;
   if (!(err instanceof HttpError)) console.error("kb error", err && err.message);
   return res.status(status).json(out);
 }
