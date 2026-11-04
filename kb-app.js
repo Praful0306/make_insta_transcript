@@ -43,7 +43,8 @@ function kbCounter(){
 function missingKeys(items){
   const miss = [];
   if (!memKeys.neon) miss.push("Neon database URL");
-  if (!memKeys.groq.length) miss.push("Groq key");
+  const ig = (items || []).some(x => x.platform === "instagram");
+  if (!memKeys.groq.length && (!memKeys.llm.url || ig)) miss.push(ig && memKeys.llm.url ? "Groq key (Instagram reels still use Groq Whisper)" : "Groq key or Colab address");
   if (!memKeys.apify.length) miss.push("Apify token");
   if ((items || []).some(x => x.platform === "instagram") && !memKeys.hook) miss.push("Make webhook (for Instagram reels)");
   return miss;
@@ -203,17 +204,35 @@ async function runChunk(chunk, say){
     } finally { releaseKey(k, ok); }
   }
 }
+// Own AI server (Google Colab): no per-minute or daily limits to respect, so there are no rests and no key rotation.
+// A couple of parts run at once because the GPU can serve more than one request.
+const LLM_PARALLEL = 2;
+async function runChunkLlm(chunk, say){
+  let status = chunk.status, tries = 0;
+  const STEP = {pending: "Translating to English", translated: "Extracting rules", extracted: "Verifying every rule against the transcript"};
+  const hdr = {"x-llm-url": memKeys.llm.url, "x-llm-model": memKeys.llm.model || "qwen2.5:7b"};
+  while (status !== "done"){
+    if (kbStop) throw new Error("Stopped. Paste the link again, or press Retry, to carry on.");
+    say(`Colab: ${STEP[status] || "Working"}…`);
+    const d = await kb({action: "step", chunkId: chunk.id}, hdr);
+    if (d.ok){ const same = d.status === status; status = d.status; if (same && ++tries > 3) throw new Error("This part isn't moving forward."); if (!same) tries = 0; continue; }
+    if (d.code === "keys"){ const e = new Error(d.error); e.code = "keys"; throw e; }
+    if (++tries > 6) throw new Error(d.error || "This part keeps failing.");
+    await nap(Math.min(30, d.retryAfter || 8) * 1000, say, `${d.error || "Something went wrong."} Trying again in`);
+  }
+}
 // Runs every unfinished part of a source. Up to one part per usable key runs at once.
 async function runChunks(chunks, say, onProgress){
   const todo = chunks.filter(c => c.status !== "done"), total = chunks.length;
   let next = 0, done = total - todo.length, fatal = null; const failures = [];
   onProgress && onProgress(done, total);
   poolSync();
-  const width = Math.max(1, Math.min(todo.length, pool.keys.filter(k => !k.dead).length));
+  const useLlm = !!memKeys.llm.url, run = useLlm ? runChunkLlm : runChunk;
+  const width = useLlm ? Math.max(1, Math.min(todo.length, LLM_PARALLEL)) : Math.max(1, Math.min(todo.length, pool.keys.filter(k => !k.dead).length));
   async function worker(){
     while (!fatal && !kbStop && next < todo.length){
       const c = todo[next++], n = chunks.indexOf(c) + 1;
-      try { await runChunk(c, t => say(`Part ${n} of ${total} · ${t}`)); done++; onProgress && onProgress(done, total); }
+      try { await run(c, t => say(`Part ${n} of ${total} · ${t}`)); done++; onProgress && onProgress(done, total); }
       catch (e){ if (e.code === "keys" || e.code === "daily") fatal = fatal || e; else if (kbStop) { fatal = fatal || e; } else failures.push(`Part ${n}: ${e.message}`); }
     }
   }
@@ -526,7 +545,7 @@ function renderSources(body){
 }
 
 async function reExtract(s, btn){
-  if (!memKeys.groq.length){ openDrawer(); return; }
+  if (!memKeys.groq.length && !memKeys.llm.url){ openDrawer(); return; }
   btn.disabled = true; kbStop = false;
   let chunks;
   if (s.status === "done"){

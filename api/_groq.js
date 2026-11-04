@@ -1,5 +1,6 @@
 // Groq chat helper. The user's key arrives in the x-groq-key header and is used for this call only.
 import { HttpError } from "./_db.js";
+import { chatLocal } from "./_llm.js";
 
 export const MODEL = "openai/gpt-oss-120b";
 const FREE_TPM = 8000; // Groq free tier tokens-per-minute for gpt-oss-120b; input + max output must fit
@@ -21,6 +22,7 @@ export function secondsFrom(text) {
 }
 
 export async function chatJson(key, system, user, { effort = "medium", maxOut = 6000 } = {}) {
+  if (key && typeof key === "object" && key.llm) return chatLocal(key.llm, system, user, { maxOut });   // the user's own AI server (Colab)
   if (!key) throw new HttpError(400, "Add your Groq API key in API keys.", { code: "keys" });
   const input = estTokens(system) + estTokens(user) + 50;
   const max = Math.max(1500, Math.min(maxOut, FREE_TPM - input - 200));

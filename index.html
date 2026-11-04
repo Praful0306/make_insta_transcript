@@ -428,7 +428,19 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO kb_reader;</pre>
       </details>
     </div>
     <div class="field">
-      <span class="label">Groq API keys (1 required, up to 3)</span>
+      <details class="steps" id="llmSteps">
+        <summary>Optional: use your own free GPU in Google Colab instead of Groq (no limits)</summary>
+        <p class="hint">For knowledge-base videos (translate, extract rules, check them). Open the notebook, press Run all, then paste the address it prints. Groq is not used for those steps while this is filled. Instagram reels still need a Groq key. A free Colab GPU is slower than Groq and its model is smaller, so rules can be less complete.</p>
+        <p class="hint"><a href="https://colab.research.google.com/github/praful0306/make_insta_transcript/blob/main/colab/trader_llm_server.ipynb" target="_blank" rel="noopener">Open the notebook in Colab</a> · <a href="/colab/trader_llm_server.ipynb" download>Download the .ipynb file</a></p>
+        <label class="label" for="kLlmUrl">Colab address</label>
+        <input id="kLlmUrl" type="text" autocomplete="off" spellcheck="false" placeholder="https://something-random.trycloudflare.com">
+        <label class="label" for="kLlmModel">Model name (as printed by the notebook)</label>
+        <input id="kLlmModel" type="text" autocomplete="off" spellcheck="false" placeholder="qwen2.5:7b">
+        <div class="row"><button type="button" id="kLlmTest">Test Colab connection</button><span class="status" id="kLlmOut" role="status"></span></div>
+      </details>
+    </div>
+    <div class="field">
+      <span class="label">Groq API keys (1 required unless you use Colab, up to 3)</span>
       <input id="kGroq1" class="kGroq" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_..." aria-label="Groq API key 1">
       <input id="kGroq2" class="kGroq" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_..." aria-label="Groq API key 2">
       <input id="kGroq3" class="kGroq" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_..." aria-label="Groq API key 3">
@@ -544,9 +556,9 @@ const KEY_STORE = "reelScriptKeys";
 function getKeys(){ try { return JSON.parse(localStorage.getItem(KEY_STORE) || "{}"); } catch { return {}; } }
 function saveKeys(k){ try { localStorage.setItem(KEY_STORE, JSON.stringify(k)); return true; } catch { return false; } }
 let memKeys = getKeys();
-function normKeys(k){ k = k || {}; const arr = v => (Array.isArray(v) ? v : (v ? [v] : [])).filter(Boolean); return {hook: k.hook || "", neon: k.neon || "", s3: {key: (k.s3 && k.s3.key) || "", secret: (k.s3 && k.s3.secret) || "", endpoint: (k.s3 && k.s3.endpoint) || "", region: (k.s3 && k.s3.region) || "", bucket: (k.s3 && k.s3.bucket) || ""}, groq: arr(k.groq), apify: arr(k.apify)}; }
+function normKeys(k){ k = k || {}; const arr = v => (Array.isArray(v) ? v : (v ? [v] : [])).filter(Boolean); return {hook: k.hook || "", neon: k.neon || "", s3: {key: (k.s3 && k.s3.key) || "", secret: (k.s3 && k.s3.secret) || "", endpoint: (k.s3 && k.s3.endpoint) || "", region: (k.s3 && k.s3.region) || "", bucket: (k.s3 && k.s3.bucket) || ""}, groq: arr(k.groq), apify: arr(k.apify), llm: {url: (k.llm && k.llm.url) || "", model: (k.llm && k.llm.model) || ""}}; }
 memKeys = normKeys(memKeys);
-function keysReady(k = memKeys){ return !!(k.hook && k.groq.length && k.apify.length); }
+function keysReady(k = memKeys){ return !!(k.hook && (k.groq.length || k.llm.url) && k.apify.length); }
 function pickKeys(i, attempt){ const g = memKeys.groq, a = memKeys.apify; const gi = (i + attempt) % g.length, ai = (i + attempt) % a.length; return {groq: g[gi], apify: a[ai], gi, ai}; }
 
 async function processOnce(i, url, card, attempt){
@@ -646,7 +658,7 @@ $("copyAll").addEventListener("click", e => {
 });
 
 const drawer = $("drawer"), scrim = $("scrim");
-function fillForm(){ [1,2,3].forEach(n => { $("kGroq"+n).value = memKeys.groq[n-1] || ""; $("kApify"+n).value = memKeys.apify[n-1] || ""; }); $("kHook").value = memKeys.hook || ""; $("kNeon").value = memKeys.neon || ""; ["Key","Secret","Endpoint","Region","Bucket"].forEach(n => $("kS3"+n).value = memKeys.s3[n.toLowerCase()] || ""); $("s3Steps").open = !!(memKeys.s3.key || memKeys.s3.endpoint); $("kErr").hidden = true; }
+function fillForm(){ [1,2,3].forEach(n => { $("kGroq"+n).value = memKeys.groq[n-1] || ""; $("kApify"+n).value = memKeys.apify[n-1] || ""; }); $("kHook").value = memKeys.hook || ""; $("kNeon").value = memKeys.neon || ""; $("kLlmUrl").value = memKeys.llm.url || ""; $("kLlmModel").value = memKeys.llm.model || ""; $("llmSteps").open = !!memKeys.llm.url; ["Key","Secret","Endpoint","Region","Bucket"].forEach(n => $("kS3"+n).value = memKeys.s3[n.toLowerCase()] || ""); $("s3Steps").open = !!(memKeys.s3.key || memKeys.s3.endpoint); $("kErr").hidden = true; }
 function openDrawer(){ fillForm(); drawer.classList.add("open"); drawer.removeAttribute("inert"); drawer.setAttribute("aria-hidden","false"); scrim.hidden = false; $("navKeys").setAttribute("aria-expanded","true"); setTimeout(() => { if (!drawer.contains(document.activeElement)) $("kHook").focus(); }, 50); $("hookSteps").open = !memKeys.hook; $("neonSteps").open = !memKeys.neon && !!memKeys.hook; }
 function closeDrawer(){ drawer.classList.remove("open"); drawer.setAttribute("inert",""); drawer.setAttribute("aria-hidden","true"); scrim.hidden = true; $("navKeys").setAttribute("aria-expanded","false"); $("navKeys").focus(); }
 function updateKeyUi(){ const ok = keysReady(); $("keyDot").className = "dot" + (ok ? " on" : ""); $("keysMissing").hidden = ok; if (typeof kbKeyUi === "function") kbKeyUi(); }
@@ -659,7 +671,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer.cla
 $("kShow").addEventListener("change", e => { document.querySelectorAll(".kGroq,.kApify,.kNeon,.kS3secret").forEach(x => x.type = e.target.checked ? "text" : "password"); });
 $("kSave").addEventListener("click", () => {
   const vals = cls => [...document.querySelectorAll("." + cls)].map(x => x.value.trim()).filter(Boolean);
-  const k = { hook: $("kHook").value.trim(), neon: $("kNeon").value.trim(), s3: {key: $("kS3Key").value.trim(), secret: $("kS3Secret").value.trim(), endpoint: $("kS3Endpoint").value.trim().replace(/\/+$/, ""), region: $("kS3Region").value.trim(), bucket: $("kS3Bucket").value.trim()}, groq: [...new Set(vals("kGroq"))], apify: [...new Set(vals("kApify"))] };
+  const k = { hook: $("kHook").value.trim(), neon: $("kNeon").value.trim(), s3: {key: $("kS3Key").value.trim(), secret: $("kS3Secret").value.trim(), endpoint: $("kS3Endpoint").value.trim().replace(/\/+$/, ""), region: $("kS3Region").value.trim(), bucket: $("kS3Bucket").value.trim()}, groq: [...new Set(vals("kGroq"))], apify: [...new Set(vals("kApify"))], llm: {url: $("kLlmUrl").value.trim().replace(/\/+$/, ""), model: $("kLlmModel").value.trim()} };
   const err = [];
   if (!k.hook) err.push("Add your Make.com webhook URL.");
   else if (!/^https:\/\/hook\.[a-z0-9]+\.make\.com\/[A-Za-z0-9]+$/.test(k.hook)) err.push("The Make webhook should look like https://hook.eu1.make.com/abc123.");
@@ -667,7 +679,8 @@ $("kSave").addEventListener("click", () => {
   const s3n = [k.s3.key, k.s3.secret, k.s3.endpoint, k.s3.region].filter(Boolean).length;
   if (s3n && s3n < 4) err.push("Neon file storage needs the access key, secret key, endpoint and region. Fill in all four, or clear them.");
   else if (k.s3.endpoint && !/^https:\/\/[^\s/]+\.neon\.(tech|build)$/.test(k.s3.endpoint)) err.push("The storage endpoint should look like https://br-....storage.us-east-2.aws.neon.tech.");
-  if (!k.groq.length) err.push("Add at least one Groq API key.");
+  if (k.llm.url && !/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.(trycloudflare\.com|ngrok-free\.app|ngrok\.app|ngrok\.dev)$/i.test(k.llm.url)) err.push("The Colab address should look like https://something.trycloudflare.com, exactly as the notebook prints it.");
+  if (!k.groq.length && !k.llm.url) err.push("Add at least one Groq API key, or a Colab address.");
   else if (k.groq.some(x => !/^gsk_[A-Za-z0-9]{20,}$/.test(x))) err.push("Groq keys should start with gsk_.");
   if (!k.apify.length) err.push("Add at least one Apify API token.");
   else if (k.apify.some(x => !/^apify_api_[A-Za-z0-9]{20,}$/.test(x))) err.push("Apify tokens should start with apify_api_.");
@@ -676,6 +689,15 @@ $("kSave").addEventListener("click", () => {
   const stored = saveKeys(k);
   updateKeyUi(); closeDrawer(); refreshApify(); if (!$("viewKb").hidden) loadTraders();
   $("status").textContent = stored ? "Keys saved in this browser." : "Keys saved for this visit only (your browser blocks storage).";
+});
+$("kLlmTest").addEventListener("click", async () => {
+  const out = $("kLlmOut"), url = $("kLlmUrl").value.trim().replace(/\/+$/, ""), model = $("kLlmModel").value.trim();
+  if (!url){ out.textContent = "Paste the Colab address first."; return; }
+  out.textContent = "Checking…";
+  try {
+    const r = await fetch("/api/llm-test", {method: "POST", headers: {"x-llm-url": url, "x-llm-model": model || "qwen2.5:7b"}}), d = await r.json();
+    out.textContent = !r.ok ? (d.error || "Something went wrong.") : d.hasModel ? `Works. Model ready: ${d.model}.` : `Server answers, but model "${d.model}" is not there. Available: ${d.models.join(", ") || "none"}.`;
+  } catch { out.textContent = "Network error. Check your connection."; }
 });
 $("kClear").addEventListener("click", () => { memKeys = normKeys({}); try { localStorage.removeItem(KEY_STORE); } catch {} fillForm(); updateKeyUi(); $("status").textContent = "Keys removed from this browser."; });
 updateKeyUi();

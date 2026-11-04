@@ -5,6 +5,7 @@
 import { db, header, readBody, send, HttpError } from "./_db.js";
 import { storageFrom, storeThumbnail, resolveThumbnail } from "./_storage.js";
 import { translate, extract, verify, applyFix, quoteFound, tsToSec } from "./_extract.js";
+import { llmFrom } from "./_llm.js";
 
 const CHUNK_SEC = 180;     // YouTube: about 3 minutes of speech per part (fits Groq free-tier limits)
 const CHUNK_CHARS = 3500;  // Instagram / caption-less text: split long transcripts by sentences
@@ -198,7 +199,8 @@ const ACTIONS = {
 
   // Run one step on one part: translate → extract → verify. The page calls this repeatedly.
   async step(q, b, req) {
-    const key = header(req, "x-groq-key");
+    const llm = llmFrom(req);
+    const key = llm ? { llm } : header(req, "x-groq-key");   // own AI server (Colab) if given, otherwise Groq
     const id = int(b.chunkId);
     const c = (await q(`SELECT c.*, s.trader_id, s.title, s.language, t.name AS trader FROM chunks c JOIN sources s ON s.id=c.source_id JOIN traders t ON t.id=s.trader_id WHERE c.id=$1`, [id]))[0];
     if (!c) throw new HttpError(404, "Part not found.");
