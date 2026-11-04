@@ -205,6 +205,7 @@ button.bad{color:var(--bad);border-color:var(--bad)}
   <button class="nav" type="button" aria-current="page" id="navHome">Transcribe</button>
   <button class="nav" type="button" id="navKb">Knowledge base</button>
   <button class="nav" type="button" id="navApi">AI tools</button>
+  <button class="nav" type="button" id="navLib">Library <span aria-hidden="true">&#128274;</span></button>
   <button class="nav" type="button" id="navUsage">Usage</button>
   <button class="nav" type="button" id="navKeys" aria-expanded="false" aria-controls="drawer">API keys <span class="dot" id="keyDot" aria-hidden="true"></span></button>
   <p class="side-foot">Your keys stay in this browser. They're sent only with your own requests and never saved on our server.</p>
@@ -333,6 +334,37 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO kb_reader;</pre>
     <p class="note">Rules come only from each trader's own words, with the exact quote and link. "Not stated" means the trader did not say it, so your AI tool should ask rather than guess. This is educational material, not financial advice.</p>
   </section>
 </div>
+<div class="wrap" id="viewLib" hidden>
+  <header>
+    <h1>Library</h1>
+    <p>Our own knowledge base, built from many traders' public videos. It opens only for paying members. Until you pay, no data is sent to you or to any AI tool. You can still build your own knowledge base for free with your own keys.</p>
+  </header>
+  <section class="usage" id="libState" aria-live="polite"><p class="hint">Loading…</p></section>
+  <section class="usage" id="libLogin" hidden aria-labelledby="libLoginT">
+    <h2 id="libLoginT">Sign in</h2>
+    <label class="label" for="libEmail">Email</label><input id="libEmail" type="email" autocomplete="email">
+    <label class="label" for="libPass">Password (at least 8 characters)</label><input id="libPass" type="password" autocomplete="current-password">
+    <label class="hint"><input type="checkbox" id="libAgree"> I agree to the <a href="/legal/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="/legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</label>
+    <div class="row"><button type="button" class="primary" id="libSignIn">Sign in</button><button type="button" id="libSignUp">Create account</button><button type="button" id="libGoogle">Continue with Google</button><button type="button" id="libReset">Forgot password</button></div>
+    <span class="status" id="libMsg" role="status"></span>
+  </section>
+  <section class="usage" id="libAccount" hidden aria-labelledby="libAccT">
+    <h2 id="libAccT">Your plan</h2>
+    <div id="libPlan"></div>
+    <div id="libPaid" hidden>
+      <h2>API keys for AI tools</h2>
+      <p class="hint">Send the key in the <code>x-api-key</code> header to <code id="libBase"></code>. A key is shown once. Keep it secret.</p>
+      <div class="row"><input id="libKeyLabel" placeholder="Label, e.g. Claude Code" maxlength="60"><button type="button" class="primary" id="libNewKey">Create key</button></div>
+      <pre class="code" id="libNewKeyOut" hidden></pre>
+      <div id="libKeys"></div>
+      <span class="label">Prompt for your AI tool</span>
+      <pre class="code" id="libPrompt"></pre>
+    </div>
+    <div class="row"><button type="button" id="libExport">Download my data</button><button type="button" id="libDelete">Delete my account</button><button type="button" id="libOut">Sign out</button></div>
+    <span class="status" id="libAccMsg" role="status"></span>
+  </section>
+</div>
+
 <div class="wrap" id="viewTrader" hidden></div>
 </main>
 </div>
@@ -742,13 +774,14 @@ async function refreshApify(){
   renderUsage();
 }
 $("usageRefresh").addEventListener("click", refreshApify);
-const VIEWS = {transcribe:["viewTranscribe","navHome"], usage:["viewUsage","navUsage"], api:["viewApi","navApi"], kb:["viewKb","navKb"], trader:["viewTrader","navKb"]};
+const VIEWS = {transcribe:["viewTranscribe","navHome"], usage:["viewUsage","navUsage"], api:["viewApi","navApi"], lib:["viewLib","navLib"], kb:["viewKb","navKb"], trader:["viewTrader","navKb"]};
 function showView(name, hash){
   for (const [k, [v]] of Object.entries(VIEWS)) $(v).hidden = k !== name;
-  ["navHome","navUsage","navKb","navApi"].forEach(n => $(n).removeAttribute("aria-current"));
+  ["navHome","navUsage","navKb","navApi","navLib"].forEach(n => $(n).removeAttribute("aria-current"));
   $(VIEWS[name][1]).setAttribute("aria-current", "page");
   if (name === "usage") refreshApify();
   if (name === "api") renderApiView();
+  if (name === "lib" && window.libOpen) window.libOpen();
   if (name === "kb") loadTraders();
   try { history.replaceState(null, "", hash || (name === "transcribe" ? location.pathname : "#" + name)); } catch {}
   window.scrollTo({top:0});
@@ -756,6 +789,7 @@ function showView(name, hash){
 $("navUsage").addEventListener("click", () => { closeDrawer(); showView("usage"); });
 $("navKb").addEventListener("click", () => { closeDrawer(); showView("kb"); });
 $("navApi").addEventListener("click", () => { closeDrawer(); showView("api"); });
+$("navLib").addEventListener("click", () => { closeDrawer(); showView("lib"); });
 
 /* ---------- AI tools: API instructions ---------- */
 function renderApiView(){
@@ -788,5 +822,7 @@ $("apiTest").addEventListener("click", async () => {
 renderUsage(); refreshApify();
 </script>
 <script src="/kb-app.js"></script>
+<script src="/library-app.js"></script>
+<footer class="wrap" style="font-size:.8rem;padding-bottom:32px"><a href="/legal/privacy.html">Privacy</a> · <a href="/legal/terms.html">Terms</a> · <a href="/legal/refunds.html">Cancellation &amp; refunds</a> · <a href="/legal/data.html">Your data</a> · <a href="/legal/contact.html">Contact</a><br>Educational material from the traders own public videos. Not financial advice. No promise of profit.</footer>
 </body>
 </html>
