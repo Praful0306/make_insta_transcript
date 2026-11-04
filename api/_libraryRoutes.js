@@ -35,10 +35,10 @@ export async function libraryRoute(req, res, u, path) {
       endpoints: ["GET /api/v1/library/traders", "GET /api/v1/library/concepts", "GET /api/v1/library/rules", "GET /api/v1/library/knowledge", "GET /api/v1/library/traders/{id}"],
     });
     const f = parseFilters(u.searchParams);
-    const { q, who, rulesUsed } = await gate(req);                  // from here on the caller is a signed-in, paying member within limits
+    const { q, who, rulesUsed, owner } = await gate(req);                  // from here on the caller is a signed-in, paying member within limits
     let reserved = 0, served = 0, out;
     try {
-      const reserve = async want => (reserved = await reserveRules(q, who.uid, rulesUsed, want));
+      const reserve = async want => (reserved = owner ? want : await reserveRules(q, who.uid, rulesUsed, want));
       if (a === "traders" && !b) out = await listTraders(q);
       else if (a === "concepts" && !b) out = await listConcepts(q, f);
       else if (a === "traders" && b) {
@@ -52,14 +52,14 @@ export async function libraryRoute(req, res, u, path) {
         const room = await reserve(f.limit);
         const k = await knowledge(q, f, { limit: room, offset: f.offset }); served = k.rule_count;
         if ((u.searchParams.get("format") || "").toLowerCase() === "markdown") {
-          setQuota(res, rulesUsed + served);
+          if (!owner) setQuota(res, rulesUsed + served);
           res.setHeader("Content-Type", "text/markdown; charset=utf-8");
           return res.status(200).send(knowledgeMarkdown(k, f) + `\n\n---\n${NOTICE}\n`);
         }
         out = k;
       } else throw new HttpError(404, "Unknown endpoint. See /api/v1/library.");
-    } finally { await refundRules(q, who.uid, reserved, served).catch(() => {}); }
-    setQuota(res, rulesUsed + served);
+    } finally { if (!owner) await refundRules(q, who.uid, reserved, served).catch(() => {}); }
+    if (!owner) setQuota(res, rulesUsed + served);
     return res.status(200).json({ ...out, notice: NOTICE });
   } catch (e) { return send(res, e); }
 }
@@ -80,7 +80,7 @@ export async function accountRoute(req, res, u, path) {
       const e = await entitlementOf(q, who.uid);
       return res.status(200).json({
         email: who.email, plan: planInfo(),
-        entitlement: e ? { plan: e.plan, status: e.status, period_end: e.period_end, active: active(e) } : null,
+        entitlement: e ? { plan: e.plan, status: e.status, period_end: e.period_end, active: active(e), owner: e.source === "owner" } : null,
         usage: await usageToday(q, who.uid), keys: await listKeys(q, who.uid),
       });
     }
