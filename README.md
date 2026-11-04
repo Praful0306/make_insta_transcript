@@ -19,28 +19,20 @@ Browser → `/api/transcribe` (Vercel function, only forwards) → the user's ow
 1. vercel.com → Add New → Project → import this repo. No build settings and no environment variables needed.
 2. Deploy.
 
-## Neon team project (database + file storage)
+## Your own Neon database and file storage
 
-`neon.ts` declares the team's Neon services: Postgres and a private `assets` bucket.
-`neon deploy` provisions them and writes their env vars to `.env.local` (never committed).
+The server holds no database or storage of its own, so nobody can use anyone else's data.
+Everyone creates a free Neon project and pastes their details into **API keys** in the page.
+They are kept in that browser, sent only with that person's own requests, and never saved on the server.
 
-- **Database.** If `DATABASE_URL` is set, the knowledge base uses it whenever a user hasn't
-  pasted their own Neon URL in API keys. A pasted URL still wins, for a private knowledge base.
-- **File storage.** Thumbnails for sources saved to the team database are copied into the
-  `assets` bucket (Instagram's image links expire) and shown through short-lived signed URLs.
+- **Neon database URL (needed for the knowledge base).** Traders, transcripts and rules are saved here.
+  The tables are created automatically.
+- **Neon file storage (optional).** Only fill this in if you want thumbnails kept in your own bucket
+  (Instagram image links expire). Needs five values from your Neon project: bucket name, S3 access key ID,
+  S3 secret access key, S3 endpoint and S3 region. Leave them empty and thumbnails stay inside your database.
 
-Vercel env vars (Settings → Environment Variables). Vercel reserves the `AWS_*` names,
-so the storage values use `NEON_S3_*` names there:
-
-| Vercel name | Value from `.env.local` |
-| --- | --- |
-| `DATABASE_URL` | `DATABASE_URL` (pooled) |
-| `NEON_S3_ACCESS_KEY_ID` | `AWS_ACCESS_KEY_ID` |
-| `NEON_S3_SECRET_ACCESS_KEY` | `AWS_SECRET_ACCESS_KEY` |
-| `NEON_S3_ENDPOINT` | `AWS_ENDPOINT_URL_S3` |
-| `NEON_S3_REGION` | `AWS_REGION` |
-
-Without these, the app behaves as before: each user pastes their own Neon URL.
+No Vercel environment variables are needed for Neon. `neon.ts` is only an example of how to create a private
+bucket in your own project with `neon deploy`; it isn't used by the app.
 
 ## Limits
 

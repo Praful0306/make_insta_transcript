@@ -3,14 +3,7 @@
 (() => {
 const KB_MAX = 50, KB_CONCURRENCY = 2;
 let kbStop = false, groqTurn = 0, apifyTurn = 0, traders = [], current = null;
-// teamDb: the server has the team's Neon database (from `neon deploy`), so a personal Neon URL is optional.
-let kbServer = {teamDb: false, storage: false};
-const kbServerReady = fetch("/api/kb", {cache: "no-store"}).then(r => r.json()).then(d => {
-  if (d && d.ok) kbServer = {teamDb: !!d.teamDb, storage: !!d.storage};
-  const lbl = document.getElementById("kNeonOptional"); if (lbl) lbl.hidden = !kbServer.teamDb;
-  try { kbKeyUi(); } catch {}
-}).catch(() => {});
-const hasDb = () => !!memKeys.neon || kbServer.teamDb;
+
 const NS = "Not stated";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -49,7 +42,7 @@ function kbCounter(){
 
 function missingKeys(items){
   const miss = [];
-  if (!hasDb()) miss.push("Neon database URL");
+  if (!memKeys.neon) miss.push("Neon database URL");
   if (!memKeys.groq.length) miss.push("Groq key");
   if (!memKeys.apify.length) miss.push("Apify token");
   if ((items || []).some(x => x.platform === "instagram") && !memKeys.hook) miss.push("Make webhook (for Instagram reels)");
@@ -73,7 +66,10 @@ async function api(path, body, headers = {}){
   data.http = res.status;
   return data;
 }
-const kb = (body, headers = {}) => api("/api/kb", body, {...(memKeys.neon ? {"x-neon-url": memKeys.neon} : {}), ...headers});
+// Optional Neon file storage: sent only when the user filled it in (all four values).
+const s3Headers = () => { const o = memKeys.s3 || {}; return o.key && o.secret && o.endpoint && o.region
+  ? {"x-neon-s3-key": o.key, "x-neon-s3-secret": o.secret, "x-neon-s3-endpoint": o.endpoint, "x-neon-s3-region": o.region, "x-neon-s3-bucket": o.bucket || "assets"} : {}; };
+const kb = (body, headers = {}) => api("/api/kb", body, {"x-neon-url": memKeys.neon, ...s3Headers(), ...headers});
 
 /* ---------- step 1: transcript ---------- */
 async function getInstagram(item, say){
@@ -244,8 +240,7 @@ async function startKb(){
 /* ---------- traders list ---------- */
 async function loadTraders(){
   const list = $("traderList");
-  await kbServerReady;
-  if (!hasDb()){ list.textContent = ""; list.append(el("p", {class: "hint"}, "Add your Neon database URL in API keys to see your traders.")); fillFileUnder(); return; }
+  if (!memKeys.neon){ list.textContent = ""; list.append(el("p", {class: "hint"}, "Add your Neon database URL in API keys to see your traders.")); fillFileUnder(); return; }
   $("tStamp").textContent = "Loading…";
   const d = await kb({action: "traders"});
   if (!d.ok){ $("tStamp").textContent = ""; list.textContent = ""; list.append(el("p", {class: "err"}, d.error)); return; }

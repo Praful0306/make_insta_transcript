@@ -1,6 +1,6 @@
-// Neon database helper. A user can bring their own Neon connection string in the
-// x-neon-url header (used for this request only, never stored or logged).
-// Without it, the team database from `neon deploy` is used (DATABASE_URL, pooled).
+// Neon database helper. Every user brings their own Neon connection string in the
+// x-neon-url header. It is used for this request only and is never stored or logged.
+// The server holds no database of its own.
 import { neon } from "@neondatabase/serverless";
 
 const ready = new Set(); // connection strings whose tables already exist in this warm instance
@@ -78,15 +78,10 @@ export class HttpError extends Error {
   constructor(status, message, extra = {}) { super(message); this.status = status; Object.assign(this, extra); }
 }
 
-export const teamDbUrl = () => (process.env.DATABASE_URL || "").trim();
-
 export function neonUrlFrom(req) {
   const v = req.headers["x-neon-url"];
   const url = (Array.isArray(v) ? v[0] : v || "").trim();
-  if (!url) {
-    if (teamDbUrl()) return teamDbUrl();
-    throw new HttpError(400, "Add your Neon database URL in API keys.", { code: "keys" });
-  }
+  if (!url) throw new HttpError(400, "Add your Neon database URL in API keys.", { code: "keys" });
   let u;
   try { u = new URL(url); } catch { throw new HttpError(400, "Your Neon database URL isn't valid. Copy it again from Neon → Connect.", { code: "keys" }); }
   if (!/^postgres(ql)?:$/.test(u.protocol) || !/\.neon\.(tech|build)$/i.test(u.hostname)) {
@@ -113,7 +108,6 @@ export async function db(req) {
     for (const s of SCHEMA) await q(s);
     ready.add(url);
   }
-  q.teamDb = url === teamDbUrl(); // the bucket in neon.ts belongs to this database
   return q;
 }
 
